@@ -148,50 +148,28 @@
 </template>
 
 <script>
+import { useCongesStore } from '@/stores/conges';
+import { computed, onMounted } from 'vue';
+
 export default {
-  name: "SoldeConges",
-  data() {
+  name: 'SoldeConges',
+  setup() {
+    const congesStore = useCongesStore();
+
+    onMounted(async () => {
+      await congesStore.fetchStats();
+    });
+
     return {
-      anneeActuelle: new Date().getFullYear(),
-      congesAnnuel: {
-        acquis: 25,
-        pris: 12,
-        reste: 13,
-        pourcentage: 48,
-      },
-      congesFractionnes: {
-        acquis: 15,
-        pris: 8,
-        reste: 7,
-        pourcentage: 53,
-      },
-      autresConges: {
-        acquis: 10,
-        pris: 3,
-        reste: 7,
-        pourcentage: 30,
-      },
-      congesPlanifies: 5,
+      congesAnnuel: computed(() => congesStore.soldeConges.congesAnnuel),
+      congesFractionnes: computed(() => congesStore.soldeConges.congesFractionnes),
+      autresConges: computed(() => congesStore.soldeConges.autresConges),
+      congesPlanifies: computed(() => congesStore.soldeConges.congesPlanifies),
+      totalAcquis: computed(() => congesStore.getTotalAcquis),
+      totalPris: computed(() => congesStore.getTotalPris),
+      soldeDisponible: computed(() => congesStore.getSoldeDisponible),
+      loading: computed(() => congesStore.loading),
     };
-  },
-  computed: {
-    totalAcquis() {
-      return (
-        this.congesAnnuel.acquis +
-        this.congesFractionnes.acquis +
-        this.autresConges.acquis
-      );
-    },
-    totalPris() {
-      return (
-        this.congesAnnuel.pris +
-        this.congesFractionnes.pris +
-        this.autresConges.pris
-      );
-    },
-    soldeDisponible() {
-      return this.totalAcquis - this.totalPris - this.congesPlanifies;
-    },
   },
 };
 </script>

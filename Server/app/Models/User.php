@@ -22,6 +22,8 @@ class User extends Authenticatable
         'role_id',
         'manager_id',
         'is_active',
+        'conges_annuels_total',
+        'conges_annuels_restants',
     ];
 
     protected $hidden = [

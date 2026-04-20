@@ -3,50 +3,17 @@
     <!-- Statistiques principales avec design moderne -->
     <div class="stats-section">
       <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon">
-            <i class="fas fa-calendar-check"></i>
-          </div>
-          <div class="stat-content">
-            <h3>25</h3>
-            <p>Congés Restants</p>
-            <span class="stat-subtitle">jours disponibles</span>
-          </div>
-        </div>
-        
-        <div class="stat-card">
-          <div class="stat-icon">
-            <i class="fas fa-clock"></i>
-          </div>
-          <div class="stat-content">
-            <h3>3</h3>
-            <p>En Attente</p>
-            <span class="stat-subtitle">demandes à traiter</span>
-          </div>
-        </div>
-        
-        <div class="stat-card">
-          <div class="stat-icon">
-            <i class="fas fa-check-circle"></i>
-          </div>
-          <div class="stat-content">
-            <h3>12</h3>
-            <p>Approuvées</p>
-            <span class="stat-subtitle">cette année</span>
-          </div>
-        </div>
-        
-        <div class="stat-card">
-          <div class="stat-icon">
-            <i class="fas fa-calendar-times"></i>
-          </div>
-          <div class="stat-content">
-            <h3>5</h3>
-            <p>Congés Pris</p>
-            <span class="stat-subtitle">jours utilisés</span>
-          </div>
-        </div>
-      </div>
+  <div v-for="card in statsCards" :key="card.label" class="stat-card">
+    <div class="stat-icon">
+      <i :class="['fas', card.icon]"></i>
+    </div>
+    <div class="stat-content">
+      <h3>{{ card.value ?? 0 }}</h3>
+      <p>{{ card.label }}</p>
+      <span class="stat-subtitle">{{ card.sub }}</span>
+    </div>
+  </div>
+</div>
     </div>
 
     <!-- Prochains congés avec design moderne -->
@@ -72,18 +39,18 @@
           </div>
           <div class="conge-info">
             <div class="conge-dates">
-              <span class="date-range">{{ formatDate(conge.dateDebut) }} - {{ formatDate(conge.dateFin) }}</span>
-              <div class="conge-duration">{{ calculateDuration(conge.dateDebut, conge.dateFin) }} jours</div>
+              <span class="date-range">{{ formatDate(conge.date_debut) }} - {{ formatDate(conge.date_fin) }}</span>
+              <div class="conge-duration">{{ calculateDuration(conge.date_debut, conge.date_fin) }} jours</div>
             </div>
             <div class="conge-type">
-              <span :class="['badge', getTypeClass(conge.type)]">
-                {{ conge.type }}
+             <span :class="['badge', getTypeClass(conge.type_label)]">
+              {{ conge.type_label }}
               </span>
             </div>
           </div>
           <div class="conge-status">
-            <span :class="['status', getStatusClass(conge.statut)]">
-              {{ conge.statut }}
+            <span :class="['status', getStatusClass(conge.statut_label)]">
+             {{ conge.statut_label }}
             </span>
           </div>
         </div>
@@ -195,28 +162,34 @@
 <script>
 import { useCongesStore } from "@/stores/conges";
 import { useDemandesStore } from "@/stores/demandes";
+import { computed, onMounted } from 'vue';
 
 export default {
   name: "DashboardHomeView",
   setup() {
     const congesStore = useCongesStore();
     const demandesStore = useDemandesStore();
+
+    onMounted(async () => {
+      await congesStore.fetchStats();
+    });
+
     return { congesStore, demandesStore };
   },
-  computed: {
-    stats() {
-      if (this.isDirecteurRH) {
-        return {
-          demandesAValider: this.demandesStore.demandesEnAttenteDRH.length,
-          documentsAGenerer: this.demandesStore.demandesValideesDRH.length,
-          documentsGeneres: this.demandesStore.demandesValideesDRH.filter(d => d.documentGenere).length,
-        };
-      }
-      return this.congesStore.stats;
+   
+ computed: {
+    statsCards() {
+      return [
+        { value: this.congesStore.stats.conges_restants, label: 'Congés Restants', sub: 'jours disponibles', icon: 'fa-calendar-check' },
+        { value: this.congesStore.stats.demandes_en_attente, label: 'En Attente', sub: 'demandes à traiter', icon: 'fa-clock' },
+        { value: this.congesStore.stats.demandes_approuvees, label: 'Approuvées', sub: 'cette année', icon: 'fa-check-circle' },
+        { value: this.congesStore.stats.conges_pris, label: 'Congés Pris', sub: 'jours utilisés', icon: 'fa-calendar-times' },
+      ];
     },
     prochainsConges() {
       return this.congesStore.prochainsConges;
     },
+
     routePrefix() {
       const path = this.$route.path;
       if (path.startsWith('/superieur')) return '/superieur';

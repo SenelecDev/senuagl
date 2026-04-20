@@ -33,7 +33,7 @@ class DashboardController extends Controller
         $demandesParMois = DemandeConge::where('user_id', $user->id)
                                      ->whereYear('created_at', Carbon::now()->year)
                                      ->select(
-                                         DB::raw('MONTH(created_at) as mois'),
+                                         DB::raw('EXTRACT(MONTH FROM created_at) as mois'),
                                          DB::raw('COUNT(*) as total')
                                      )
                                      ->groupBy('mois')

@@ -105,15 +105,20 @@ class DemandeCongeController extends Controller
         ]);
 
         // Créer notification pour le manager
-        if ($user->manager) {
-            Notification::create([
-                'user_id' => $user->manager->id,
-                'titre' => 'Nouvelle demande de congé',
-                'message' => "{$user->full_name} a soumis une demande de {$demande->type_label}",
-                'type' => 'info',
-                'data' => ['demande_id' => $demande->id],
-            ]);
-        }
+       try {
+    $manager = $user->manager()->first();
+    if ($manager) {
+        Notification::create([
+            'user_id' => $manager->id,
+            'titre' => 'Nouvelle demande de congé',
+            'message' => "{$user->full_name} a soumis une demande de {$demande->type_label}",
+            'type' => 'info',
+            'data' => ['demande_id' => $demande->id],
+        ]);
+    }
+} catch (\Exception $e) {
+    \Log::warning('Notification manager échouée: ' . $e->getMessage());
+}
 
         return response()->json([
             'success' => true,

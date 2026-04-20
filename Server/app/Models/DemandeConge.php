@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class DemandeConge extends Model
 {
     use HasFactory;
+    protected $table = 'demandes_conges';
 
     protected $fillable = [
         'user_id',

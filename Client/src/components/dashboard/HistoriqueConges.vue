@@ -138,202 +138,85 @@
 </template>
 
 <script>
+import { useDemandesStore } from '@/stores/demandes';
+import { computed, onMounted, ref } from 'vue';
+
 export default {
-  name: "HistoriqueConges",
-  data() {
+  name: 'HistoriqueConges',
+  setup() {
+    const demandesStore = useDemandesStore();
+    const filtreAnnee = ref('all');
+    const filtreType = ref('all');
+    const currentPage = ref(1);
+    const itemsPerPage = 5;
+
+    onMounted(async () => {
+      await demandesStore.fetchDemandes();
+    });
+
+    const congesFormates = computed(() =>
+      demandesStore.demandes.map((d) => ({
+        id: d.id,
+        dateDebut: new Date(d.date_debut).toLocaleDateString('fr-FR'),
+        dateFin: new Date(d.date_fin).toLocaleDateString('fr-FR'),
+        type: d.type_label || d.type_demande,
+        typeClass: d.type_demande?.replace('conge_', '').replace('_', '') || 'annuel',
+        duree: d.duree_jours,
+        statut: d.statut_label || d.statut,
+        statutClass: d.statut,
+        dateDemande: new Date(d.created_at).toLocaleDateString('fr-FR'),
+        annee: new Date(d.created_at).getFullYear().toString(),
+      }))
+    );
+
+    const typeMap = {
+      annuel: 'conge_annuel',
+      fractionnes: 'conge_maladie',
+      autres_legaux: 'absence_exceptionnelle',
+    };
+
+    const congesFiltres = computed(() => {
+      let filtered = congesFormates.value;
+      if (filtreAnnee.value !== 'all') {
+        filtered = filtered.filter(c => c.annee === filtreAnnee.value);
+      }
+      if (filtreType.value !== 'all') {
+        filtered = filtered.filter(c => c.typeClass === filtreType.value);
+      }
+      const start = (currentPage.value - 1) * itemsPerPage;
+      return filtered.slice(start, start + itemsPerPage);
+    });
+
+    const totalPages = computed(() => {
+      let filtered = congesFormates.value;
+      if (filtreAnnee.value !== 'all') filtered = filtered.filter(c => c.annee === filtreAnnee.value);
+      if (filtreType.value !== 'all') filtered = filtered.filter(c => c.typeClass === filtreType.value);
+      return Math.max(1, Math.ceil(filtered.length / itemsPerPage));
+    });
+
+    const getTypeIcon = (typeClass) => {
+      const icons = { annuel: 'fas fa-umbrella-beach', fractionnes: 'fas fa-calendar-week', autres_legaux: 'fas fa-gavel' };
+      return icons[typeClass] || 'fas fa-calendar';
+    };
+
+    const getStatusIcon = (statutClass) => {
+      const icons = { approuve: 'fas fa-check-circle', en_attente: 'fas fa-clock', rejete: 'fas fa-times-circle' };
+      return icons[statutClass] || 'fas fa-info-circle';
+    };
+
+    const voirDetails = (conge) => console.log('Détails:', conge);
+    const telechargerAttestion = (conge) => alert(`Attestation pour ${conge.dateDebut} - ${conge.dateFin}`);
+
     return {
-      filtreAnnee: "all",
-      filtreType: "all",
-      currentPage: 1,
-      itemsPerPage: 5,
-      conges: [
-        {
-          dateDebut: "15/06/2025",
-          dateFin: "30/06/2025",
-          type: "Congé annuel",
-          typeClass: "annuel",
-          duree: 16,
-          statut: "Approuvé",
-          statutClass: "approuve",
-          dateDemande: "01/05/2025",
-        },
-        {
-          dateDebut: "10/03/2025",
-          dateFin: "15/03/2025",
-          type: "Congés fractionnés",
-          typeClass: "fractionnes",
-          duree: 6,
-          statut: "Approuvé",
-          statutClass: "approuve",
-          dateDemande: "09/03/2025",
-        },
-        {
-          dateDebut: "05/01/2024",
-          dateFin: "07/01/2024",
-          type: "Autres congés légaux",
-          typeClass: "autres_legaux",
-          duree: 3,
-          statut: "Approuvé",
-          statutClass: "approuve",
-          dateDemande: "20/12/2023",
-        },
-        {
-          dateDebut: "23/11/2024",
-          dateFin: "25/11/2024",
-          type: "Congés fractionnés",
-          typeClass: "fractionnes",
-          duree: 3,
-          statut: "Approuvé",
-          statutClass: "approuve",
-          dateDemande: "15/11/2024",
-        },
-        {
-          dateDebut: "01/08/2023",
-          dateFin: "15/08/2023",
-          type: "Congé annuel",
-          typeClass: "annuel",
-          duree: 15,
-          statut: "Approuvé",
-          statutClass: "approuve",
-          dateDemande: "01/07/2023",
-        },
-        {
-          dateDebut: "10/05/2023",
-          dateFin: "12/05/2023",
-          type: "Autres congés légaux",
-          typeClass: "autres_legaux",
-          duree: 3,
-          statut: "Approuvé",
-          statutClass: "approuve",
-          dateDemande: "10/05/2023",
-        },
-        {
-          dateDebut: "05/12/2022",
-          dateFin: "20/12/2022",
-          type: "Congé annuel",
-          typeClass: "annuel",
-          duree: 16,
-          statut: "Approuvé",
-          statutClass: "approuve",
-          dateDemande: "01/11/2022",
-        },
-        {
-          dateDebut: "15/03/2022",
-          dateFin: "20/03/2022",
-          type: "Congés fractionnés",
-          typeClass: "fractionnes",
-          duree: 6,
-          statut: "Approuvé",
-          statutClass: "approuve",
-          dateDemande: "10/03/2022",
-        },
-        {
-          dateDebut: "20/07/2021",
-          dateFin: "05/08/2021",
-          type: "Congé annuel",
-          typeClass: "annuel",
-          duree: 17,
-          statut: "Approuvé",
-          statutClass: "approuve",
-          dateDemande: "15/06/2021",
-        },
-        {
-          dateDebut: "10/12/2021",
-          dateFin: "12/12/2021",
-          type: "Autres congés légaux",
-          typeClass: "autres_legaux",
-          duree: 3,
-          statut: "Approuvé",
-          statutClass: "approuve",
-          dateDemande: "05/12/2021",
-        },
-      ],
+      filtreAnnee, filtreType, currentPage, totalPages,
+      congesFiltres, getTypeIcon, getStatusIcon,
+      voirDetails, telechargerAttestion,
+      loading: computed(() => demandesStore.loading),
     };
   },
-  computed: {
-    congesFiltres() {
-      let filtered = [...this.conges];
-
-      if (this.filtreAnnee !== "all") {
-        filtered = filtered.filter((conge) => {
-          const dateDemande = conge.dateDemande.split("/");
-          return dateDemande[2] === this.filtreAnnee;
-        });
-      }
-
-      if (this.filtreType !== "all") {
-        const typeMap = {
-          annuel: "Congé annuel",
-          fractionnes: "Congés fractionnés",
-          autres_legaux: "Autres congés légaux",
-        };
-        filtered = filtered.filter(
-          (conge) => conge.type === typeMap[this.filtreType]
-        );
-      }
-
-      const start = (this.currentPage - 1) * this.itemsPerPage;
-      const end = start + this.itemsPerPage;
-      return filtered.slice(start, end);
-    },
-    totalPages() {
-      let filtered = [...this.conges];
-
-      if (this.filtreAnnee !== "all") {
-        filtered = filtered.filter((conge) => {
-          const dateDemande = conge.dateDemande.split("/");
-          return dateDemande[2] === this.filtreAnnee;
-        });
-      }
-
-      if (this.filtreType !== "all") {
-        const typeMap = {
-          annuel: "Congé annuel",
-          fractionnes: "Congés fractionnés",
-          autres_legaux: "Autres congés légaux",
-        };
-        filtered = filtered.filter(
-          (conge) => conge.type === typeMap[this.filtreType]
-        );
-      }
-
-      return Math.ceil(filtered.length / this.itemsPerPage);
-    },
-  },
-  methods: {
-    getTypeIcon(typeClass) {
-      const icons = {
-        annuel: "fas fa-umbrella-beach",
-        fractionnes: "fas fa-calendar-week",
-        autres_legaux: "fas fa-gavel",
-      };
-      return icons[typeClass] || "fas fa-calendar";
-    },
-    getStatusIcon(statutClass) {
-      const icons = {
-        approuve: "fas fa-check-circle",
-        en_attente: "fas fa-clock",
-        rejete: "fas fa-times-circle",
-      };
-      return icons[statutClass] || "fas fa-info-circle";
-    },
-    voirDetails(conge) {
-      console.log("Voir détails du congé:", conge);
-    },
-    telechargerAttestion(conge) {
-      console.log("Télécharger attestation pour:", conge);
-      alert(
-        `Attestation de congé pour la période du ${conge.dateDebut} au ${conge.dateFin} téléchargée.`
-      );
-    },
-  },
   watch: {
-    filtreAnnee() {
-      this.currentPage = 1;
-    },
-    filtreType() {
-      this.currentPage = 1;
-    },
+    filtreAnnee() { this.currentPage = 1; },
+    filtreType() { this.currentPage = 1; },
   },
 };
 </script>

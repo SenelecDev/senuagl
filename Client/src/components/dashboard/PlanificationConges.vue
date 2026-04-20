@@ -370,28 +370,50 @@ export default {
     imprimerFiche() {
       window.print();
     },
-    envoyerDemande() {
-      // Validation simple
-      if (!this.formData.prenom || !this.formData.nom) {
-        this.notificationsStore.notifyError('Veuillez remplir tous les champs obligatoires');
-        return;
-      }
+    async envoyerDemande() {
+  if (!this.formData.prenom || !this.formData.nom) {
+    alert('Veuillez remplir les champs Prénom et Nom');
+    return;
+  }
+  if (!this.formData.annuel && !this.formData.fractionne && !this.formData.legal) {
+    alert('Veuillez sélectionner au moins un type de congé');
+    return;
+  }
+  if (!this.formData.dateDebut || !this.formData.dateFin) {
+    alert('Veuillez remplir les dates de congé');
+    return;
+  }
 
-      if (!this.formData.annuel && !this.formData.fractionne && !this.formData.legal) {
-        this.notificationsStore.notifyWarning('Veuillez sélectionner au moins un type de congé');
-        return;
-      }
+  // Déterminer le type de demande
+  let type_demande = 'conge_annuel';
+  if (this.formData.fractionne) type_demande = 'conge_sans_solde';
+  if (this.formData.legal) type_demande = 'absence_exceptionnelle';
 
+  const demandeData = {
+    type_demande,
+    date_debut: this.formData.dateDebut,
+    date_fin: this.formData.dateFin,
+    motif: `Demande de congé - ${this.formData.prenom} ${this.formData.nom}`,
+    commentaire: '',
+  };
+
+  try {
+    const { useDemandesStore } = await import('@/stores/demandes');
+    const demandesStore = useDemandesStore();
+    const result = await demandesStore.createDemande(demandeData);
+
+    if (result.success) {
       this.demandeEnvoyee = true;
       this.confirmation = true;
-      
-      // Notification de succès
-      this.notificationsStore.notifyDemandeSubmitted(`${this.formData.prenom} ${this.formData.nom}`);
-      
-      setTimeout(() => {
-        this.confirmation = false;
-      }, 3000);
-    },
+      alert('Demande soumise avec succès !');
+      setTimeout(() => { this.confirmation = false; }, 3000);
+    } else {
+      alert('Erreur : ' + result.error);
+    }
+  } catch (error) {
+    alert('Erreur lors de la soumission : ' + error.message);
+  }
+},
     ouvrirPadSignature(type) {
       this.currentSignatureType = type;
       this.showSignaturePad = true;

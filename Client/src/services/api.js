@@ -12,7 +12,7 @@ const apiClient = axios.create({
     'Accept': 'application/json',
   },
   // Configuration pour éviter les problèmes CORS
-  withCredentials: true,
+  withCredentials: false,
 });
 
 // Intercepteur pour ajouter le token d'authentification

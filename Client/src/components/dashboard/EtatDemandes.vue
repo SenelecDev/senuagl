@@ -93,131 +93,83 @@
   </div>
 </template>
 
+import { useDemandesStore } from '@/stores/demandes';
+import { useNotificationsStore } from '@/stores/notifications';
+import { computed, onMounted, ref } from 'vue';
+
 <script>
-import { useNotificationsStore } from '@/stores/notifications'
+import { useDemandesStore } from '@/stores/demandes';
+import { useNotificationsStore } from '@/stores/notifications';
+import { computed, onMounted, ref } from 'vue';
 
 export default {
-  name: "EtatDemandes",
+  name: 'EtatDemandes',
   setup() {
-    const notificationsStore = useNotificationsStore()
-    return { notificationsStore }
-  },
-  data() {
-    return {
-      filters: {
-        status: "all",
-        type: "all",
-        year: "all",
-      },
-      demandes: [
-        {
-          id: 1,
-          type: "Congé annuel",
-          dateDebut: "15/08/2023",
-          dateFin: "25/08/2023",
-          duree: 11,
-          status: "en_attente",
-          etapeActuelle: "Approbation Supérieur Hiérarchique",
-          dateSoumission: "01/08/2023",
-        },
-        {
-          id: 2,
-          type: "Congé fractionnés",
-          dateDebut: "05/06/2023",
-          dateFin: "12/06/2023",
-          duree: 8,
-          status: "approuve",
-          etapeActuelle: "Approuvé",
-          dateSoumission: "04/06/2023",
-        },
-        {
-          id: 3,
-          type: "Autres congés légaux",
-          dateDebut: "10/04/2023",
-          dateFin: "15/04/2023",
-          duree: 6,
-          status: "rejete",
-          etapeActuelle: "Rejeté",
-          dateSoumission: "01/04/2023",
-          motifRejet: "Demande hors délai règlementaire",
-        },
-      ],
+    const demandesStore = useDemandesStore();
+    const notificationsStore = useNotificationsStore();
+
+    const filters = ref({ status: 'all', type: 'all', year: 'all' });
+
+    onMounted(async () => {
+      await demandesStore.fetchDemandes();
+    });
+
+    const filteredDemandes = computed(() =>
+      demandesStore.demandes
+        .filter((d) => {
+          if (filters.value.status !== 'all' && d.statut !== filters.value.status) return false;
+          if (filters.value.type !== 'all' && d.type_demande !== filters.value.type) return false;
+          if (filters.value.year !== 'all') {
+            const year = new Date(d.date_debut).getFullYear().toString();
+            if (year !== filters.value.year) return false;
+          }
+          return true;
+        })
+        .map((d) => ({
+          id: d.id,
+          type: d.type_label || d.type_demande,
+          dateDebut: new Date(d.date_debut).toLocaleDateString('fr-FR'),
+          dateFin: new Date(d.date_fin).toLocaleDateString('fr-FR'),
+          duree: d.duree_jours,
+          status: d.statut,
+          etapeActuelle: d.statut === 'en_attente'
+            ? 'En attente de validation'
+            : d.statut === 'approuve' ? 'Approuvé' : 'Rejeté',
+          dateSoumission: new Date(d.created_at).toLocaleDateString('fr-FR'),
+          motifRejet: d.commentaire_validation || null,
+        }))
+    );
+
+    const annulerDemande = async (demande) => {
+      if (confirm('Êtes-vous sûr de vouloir annuler cette demande ?')) {
+        await demandesStore.deleteDemande(demande.id);
+      }
     };
-  },
-  computed: {
-    filteredDemandes() {
-      return this.demandes.filter((demande) => {
-        if (
-          this.filters.status !== "all" &&
-          demande.status !== this.filters.status
-        )
-          return false;
-        if (
-          this.filters.type !== "all" &&
-          demande.type !== this.convertTypeFilter(this.filters.type)
-        )
-          return false;
-        if (
-          this.filters.year !== "all" &&
-          !this.isDemandeInYear(demande, this.filters.year)
-        )
-          return false;
-        return true;
-      });
-    },
-  },
-  methods: {
-    convertTypeFilter(type) {
-      const typeMap = {
-        annuel: "Congé annuel",
-        fractionnes: "Congé fractionnés",
-        autres_legaux: "Autres congés légaux",
-      };
-      return typeMap[type] || "";
-    },
-    statusClass(status) {
-      return {
-        "status-pending": status === "en_attente",
-        "status-approved": status === "approuve",
-        "status-rejected": status === "rejete",
-      };
-    },
-    formatStatus(status) {
-      const statusMap = {
-        en_attente: "En attente",
-        approuve: "Approuvé",
-        rejete: "Rejeté",
-      };
-      return statusMap[status] || status;
-    },
-    annulerDemande(demande) {
-      if (
-        confirm(
-          `Êtes-vous sûr de vouloir annuler cette demande de ${demande.type}?`
-        )
-      ) {
-        // Simule l'annulation
-        demande.status = 'annule';
-        
-        // Notification d'annulation
-        this.notificationsStore.notifyDemandeCancelled('Votre demande');
-        
-        console.log("Demande annulée:", demande.id);
-      }
-    },
-    voirDetails(demande) {
-      console.log("Voir détails de la demande:", demande.id);
-      // Ouvrir modal ou naviguer vers page détaillée
-    },
-    isDemandeInYear(demande, year) {
-      // Extraire l'année de la date de début (format DD/MM/YYYY)
-      const dateParts = demande.dateDebut.split("/");
-      if (dateParts.length === 3) {
-        const demandeYear = parseInt(dateParts[2]);
-        return demandeYear === parseInt(year);
-      }
-      return false;
-    },
+
+    const voirDetails = (demande) => {
+      console.log('Voir détails:', demande.id);
+    };
+
+    const statusClass = (status) => ({
+      'status-pending': status === 'en_attente',
+      'status-approved': status === 'approuve',
+      'status-rejected': status === 'rejete',
+    });
+
+    const formatStatus = (status) => {
+      const map = { en_attente: 'En attente', approuve: 'Approuvé', rejete: 'Rejeté' };
+      return map[status] || status;
+    };
+
+    return {
+      filters,
+      filteredDemandes,
+      loading: computed(() => demandesStore.loading),
+      annulerDemande,
+      voirDetails,
+      statusClass,
+      formatStatus,
+    };
   },
 };
 </script>

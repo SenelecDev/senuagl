@@ -75,3 +75,4 @@ Route::get('/test', function () {
 // Routes pour la documentation API
 Route::get('/openapi.json', [App\Http\Controllers\ApiDocController::class, 'openapi']);
 Route::get('/health', [App\Http\Controllers\ApiDocController::class, 'health']);
+ 

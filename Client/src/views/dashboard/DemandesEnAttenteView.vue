@@ -106,134 +106,84 @@
 </template>
 
 <script>
-export default {
-  name: "DemandesEnAttenteView",
-  data() {
-    return {
-      searchTerm: "",
-      currentFilter: "toutes",
-      showDetailsModal: false,
-      selectedDemande: null,
-      filters: [
-        { label: "Toutes", value: "toutes" },
-        { label: "En attente", value: "en_attente" },
-        { label: "Approuvées", value: "approuvee" },
-        { label: "Rejetées", value: "rejetee" },
-      ],
-      demandes: [
-        {
-          id: 1,
-          prenom: "Fatou",
-          nom: "Sall",
-          matricule: "EMP001",
-          unite: "Service Informatique",
-          typeDemande: "Congé annuel",
-          dateDebut: "2024-04-15",
-          dateFin: "2024-04-19",
-          duree: 5,
-          motif: "Vacances familiales",
-          status: "en_attente",
-          dateDemande: "2024-03-20",
-        },
-        {
-          id: 2,
-          prenom: "Moussa",
-          nom: "Diallo",
-          matricule: "EMP002",
-          unite: "Service Informatique",
-          typeDemande: "Congé maladie",
-          dateDebut: "2024-03-25",
-          dateFin: "2024-03-27",
-          duree: 3,
-          motif: "Consultation médicale",
-          status: "approuvee",
-          dateDemande: "2024-03-18",
-        },
-        {
-          id: 3,
-          prenom: "Aissatou",
-          nom: "Ba",
-          matricule: "EMP003",
-          unite: "Service Informatique",
-          typeDemande: "Report de congés",
-          dateDebut: "2024-05-10",
-          dateFin: "2024-05-15",
-          duree: 6,
-          motif: "Report pour raisons personnelles",
-          status: "rejetee",
-          dateDemande: "2024-03-22",
-        },
-      ],
-    };
-  },
-  computed: {
-    filteredDemandes() {
-      let filtered = this.demandes;
+import { useDemandesStore } from '@/stores/demandes';
+import { computed, onMounted, ref } from 'vue';
 
-      // Filtre par statut
-      if (this.currentFilter !== "toutes") {
-        filtered = filtered.filter((d) => d.status === this.currentFilter);
+export default {
+  name: 'DemandesEnAttenteView',
+  setup() {
+    const demandesStore = useDemandesStore();
+    const searchTerm = ref('');
+    const currentFilter = ref('toutes');
+    const showDetailsModal = ref(false);
+    const selectedDemande = ref(null);
+
+    const filters = [
+      { label: 'Toutes', value: 'toutes' },
+      { label: 'En attente', value: 'en_attente' },
+      { label: 'Approuvées', value: 'approuve' },
+      { label: 'Rejetées', value: 'rejete' },
+    ];
+
+    onMounted(async () => {
+      await demandesStore.fetchDemandesAValider();
+    });
+
+    const filteredDemandes = computed(() => {
+      let list = demandesStore.demandesAValider.map(d => ({
+        id: d.id,
+        prenom: d.user?.first_name || '—',
+        nom: d.user?.name || '—',
+        matricule: d.user?.matricule || '—',
+        unite: d.user?.department?.name || '—',
+        typeDemande: d.type_label || d.type_demande,
+        dateDebut: d.date_debut,
+        dateFin: d.date_fin,
+        duree: d.duree_jours,
+        motif: d.motif,
+        status: d.statut,
+        dateDemande: d.created_at,
+      }));
+
+      if (currentFilter.value !== 'toutes') {
+        list = list.filter(d => d.status === currentFilter.value);
       }
 
-      // Filtre par recherche
-      if (this.searchTerm) {
-        const term = this.searchTerm.toLowerCase();
-        filtered = filtered.filter(
-          (d) =>
-            d.nom.toLowerCase().includes(term) ||
-            d.prenom.toLowerCase().includes(term) ||
-            d.matricule.toLowerCase().includes(term) ||
-            d.unite.toLowerCase().includes(term)
+      if (searchTerm.value) {
+        const term = searchTerm.value.toLowerCase();
+        list = list.filter(d =>
+          d.nom.toLowerCase().includes(term) ||
+          d.prenom.toLowerCase().includes(term) ||
+          d.matricule.toLowerCase().includes(term)
         );
       }
 
-      return filtered;
-    },
-  },
-  methods: {
-    formatDate(dateString) {
-      if (!dateString) return "";
-      const options = { year: "numeric", month: "2-digit", day: "2-digit" };
-      return new Date(dateString).toLocaleDateString("fr-FR", options);
-    },
-    getStatusClass(status) {
-      switch (status) {
-        case "en_attente":
-          return "pending";
-        case "approuvee":
-          return "approved";
-        case "rejetee":
-          return "rejected";
-        default:
-          return "";
-      }
-    },
-    getStatusLabel(status) {
-      switch (status) {
-        case "en_attente":
-          return "En attente";
-        case "approuvee":
-          return "Approuvée";
-        case "rejetee":
-          return "Rejetée";
-        default:
-          return status;
-      }
-    },
-    setFilter(filter) {
-      this.currentFilter = filter;
-    },
-    filterDemandes() {
-      // La logique de filtrage est gérée dans le computed
-    },
-    voirDetails(demande) {
-      this.selectedDemande = demande;
-      this.showDetailsModal = true;
-    },
-    closeModal() {
-      this.showDetailsModal = false;
-      this.selectedDemande = null;
-    },
+      return list;
+    });
+
+    const voirDetails = (demande) => {
+      selectedDemande.value = demande;
+      showDetailsModal.value = true;
+    };
+
+    const closeModal = () => {
+      showDetailsModal.value = false;
+      selectedDemande.value = null;
+    };
+
+    const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '';
+
+    const getStatusClass = (s) => ({ en_attente: 'pending', approuve: 'approved', rejete: 'rejected' }[s] || '');
+    const getStatusLabel = (s) => ({ en_attente: 'En attente', approuve: 'Approuvée', rejete: 'Rejetée' }[s] || s);
+
+    return {
+      searchTerm, currentFilter, filters, filteredDemandes,
+      showDetailsModal, selectedDemande,
+      voirDetails, closeModal, formatDate,
+      getStatusClass, getStatusLabel,
+      setFilter: (f) => { currentFilter.value = f; },
+      loading: computed(() => demandesStore.loading),
+    };
   },
 };
 </script>

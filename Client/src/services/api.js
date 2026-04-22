@@ -138,6 +138,10 @@ export const demandesApi = {
   demandesAValider: (params = {}) => apiClient.get('/demandes-a-valider', { params }),
 };
 
+export const adminApi = {
+  demandes: (params = {}) => apiClient.get('/admin/demandes', { params }),
+};
+
 export const notificationsApi = {
   list: (params = {}) => apiClient.get('/notifications', { params }),
   unread: () => apiClient.get('/notifications/unread'),

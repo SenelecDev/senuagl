@@ -94,9 +94,9 @@
               </v-col>
               <v-col cols="12">
                 <v-autocomplete
-                  v-model="editedDepartment.directorId"
+                  v-model="editedDepartment.manager_id"
                   :items="potentialDirectors"
-                  :item-title="(item) => `${item.prenom} ${item.name}`"
+                  :item-title="(item) => `${item.first_name} ${item.name}`"
                   item-value="id"
                   label="Rechercher un directeur..."
                   variant="outlined"
@@ -163,13 +163,13 @@ const editedIndex = ref(-1);
 const editedDepartment = ref({
   id: null,
   name: "",
-  directorId: null,
+  manager_id: null,
   status: "Actif",
 });
 const defaultDepartment = {
   id: null,
   name: "",
-  directorId: null,
+  manager_id: null,
   status: "Actif",
 };
 
@@ -187,15 +187,16 @@ const headers = ref([
 
 const computedDepartments = computed(() => {
   return departments.value.map((dept) => {
-    // Correction du mapping pour le directeur et le département
-    const director = users.value.find((user) => user.id === dept.manager_id || user.id === dept.directorId);
-    const employeeCount = users.value.filter(
-      (user) => user.departement_id === dept.id || user.departementId === dept.id
-    ).length;
+    // L'API retourne déjà l'objet manager dans dept.manager
+    const directorName = dept.manager
+      ? `${dept.manager.first_name} ${dept.manager.name}`
+      : null;
+    const employeeCount = users.value.filter(u => u.department_id === dept.id).length;
     return {
       ...dept,
-      directorName: director ? `${director.prenom} ${director.name}` : null,
+      directorName,
       employeeCount,
+      status: 'Actif',
     };
   });
 });
@@ -208,7 +209,9 @@ const openDialog = (dept) => {
   editedIndex.value = dept
     ? departments.value.findIndex((d) => d.id === dept.id)
     : -1;
-  editedDepartment.value = dept ? { ...dept } : { ...defaultDepartment };
+  editedDepartment.value = dept
+    ? { ...dept, manager_id: dept.manager_id || dept.manager?.id || null }
+    : { ...defaultDepartment };
   dialog.value = true;
 };
 
@@ -216,13 +219,23 @@ const closeDialog = () => {
   dialog.value = false;
 };
 
-const saveDepartment = () => {
-  if (editedIndex.value > -1) {
-    departmentsStore.updateDepartment(editedDepartment.value);
-  } else {
-    departmentsStore.addDepartment(editedDepartment.value);
+const saveDepartment = async () => {
+  const payload = {
+    name: editedDepartment.value.name,
+    manager_id: editedDepartment.value.manager_id || null,
+  };
+  try {
+    if (editedIndex.value > -1) {
+      await departmentsStore.updateDepartment(editedDepartment.value.id, payload);
+    } else {
+      await departmentsStore.addDepartment(payload);
+    }
+    closeDialog();
+    await departmentsStore.fetchDepartments();
+    await usersStore.fetchUsers(1, 100, '', true);
+  } catch(e) {
+    console.error('Erreur save département:', e);
   }
-  closeDialog();
 };
 
 const confirmDelete = (dept) => {

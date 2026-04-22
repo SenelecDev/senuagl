@@ -102,6 +102,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
+import { demandesApi } from "@/services/api";
 import { useUserStore } from "@/stores/users";
 import { useUsersAdminStore } from "@/stores/usersAdmin";
 import { useDepartmentsStore } from "@/stores/departments";
@@ -121,24 +122,22 @@ const totalDepartments = computed(() => departmentsStore.totalDepartments);
 // Loading states
 const loadingUsers = computed(() => usersAdminStore.usersLoading);
 const loadingDepartments = computed(() => departmentsStore.loading);
-
+ const demandesEnAttente = ref(0);
 // Initialize data
 onMounted(async () => {
   try {
     await Promise.all([
-      usersAdminStore.fetchUsers(1, 100, '', true), // Charger tous les utilisateurs
+      usersAdminStore.fetchUsers(1, 100, '', true),
       departmentsStore.fetchDepartments()
     ]);
-    
-    // Debug: afficher les données chargées
-    console.log('👥 Utilisateurs chargés:', usersAdminStore.users.length);
-    console.log('🏢 Départements chargés:', departmentsStore.departments.length);
-    console.log('📊 Total utilisateurs:', totalUsers.value);
-    console.log('🏢 Total départements:', totalDepartments.value);
-  } catch (error) {
-    console.error('Erreur lors du chargement des données:', error);
+    const r = await demandesApi.demandesAValider();
+    if (r.data.success) {
+      demandesEnAttente.value = (r.data.data.data || []).filter(d => d.statut === 'en_attente').length;
+    }
+  } catch(e) {
+    console.error(e);
   }
-});
+})
 
 // KPIs
 const kpis = computed(() => [
@@ -156,7 +155,7 @@ const kpis = computed(() => [
   },
   {
     title: "Demandes en Attente",
-    value: "8",
+    value:  demandesEnAttente.value,
     icon: "mdi-file-clock",
     color: "orange-darken-1",
   }, // Donnée statique pour l'exemple

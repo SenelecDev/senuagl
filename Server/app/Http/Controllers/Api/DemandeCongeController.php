@@ -145,6 +145,30 @@ class DemandeCongeController extends Controller
         ]);
     }
 
+
+
+    public function indexAdmin(Request $request)
+{
+    $user = $request->user();
+    if ($user->role->nom !== 'Admin') {
+        return response()->json(['success' => false, 'message' => 'Accès refusé'], 403);
+    }
+
+    $query = DemandeConge::with(['user', 'user.department', 'validateur']);
+
+    if ($request->has('search') && $request->search) {
+        $query->whereHas('user', function($q) use ($request) {
+            $q->where('name', 'like', '%'.$request->search.'%')
+              ->orWhere('first_name', 'like', '%'.$request->search.'%')
+              ->orWhere('matricule', 'like', '%'.$request->search.'%');
+        });
+    }
+
+    $demandes = $query->orderBy('created_at', 'desc')->paginate(10);
+
+    return response()->json(['success' => true, 'data' => $demandes]);
+}
+
     public function update(Request $request, DemandeConge $demande)
     {
         $user = $request->user();
@@ -212,6 +236,13 @@ class DemandeCongeController extends Controller
 
     public function validateDemande(Request $request, DemandeConge $demande)
     {
+        \Log::info('VALIDATE APPELÉ', [
+        'demande_id' => $demande->id,
+        'statut_avant' => $demande->statut,
+        'action' => $request->action,
+        'user' => $request->user()->id,
+    ]);
+
         $user = $request->user();
 
         if (!$user->canValidateLeave()) {
@@ -249,6 +280,10 @@ class DemandeCongeController extends Controller
         }
 
         // Créer notification pour l'utilisateur
+       // Créer notification pour l'utilisateur
+try {
+    $demande->load('user');
+    if ($demande->user_id) {
         Notification::create([
             'user_id' => $demande->user_id,
             'titre' => 'Demande de congé ' . ($statut === 'approuve' ? 'approuvée' : 'rejetée'),
@@ -256,6 +291,10 @@ class DemandeCongeController extends Controller
             'type' => $statut === 'approuve' ? 'success' : 'error',
             'data' => ['demande_id' => $demande->id],
         ]);
+    }
+} catch (\Exception $e) {
+    \Log::warning('Notification validation échouée: ' . $e->getMessage());
+}
 
         return response()->json([
             'success' => true,
@@ -265,32 +304,59 @@ class DemandeCongeController extends Controller
     }
 
     public function demandesAValider(Request $request)
-    {
-        $user = $request->user();
+{
+    $user = $request->user();
 
-        if (!$user->canValidateLeave()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Accès non autorisé',
-            ], 403);
-        }
-
-        $query = DemandeConge::with(['user', 'validateur'])
-                             ->where('statut', 'en_attente');
-
-        // Les managers ne voient que les demandes de leurs subordonnés
-        if ($user->role->nom === 'superieur') {
-            $subordinatesIds = $user->subordinates->pluck('id');
-            $query->whereIn('user_id', $subordinatesIds);
-        }
-
-        $demandes = $query->orderBy('created_at', 'asc')->paginate(10);
-
-        return response()->json([
-            'success' => true,
-            'data' => $demandes,
-        ]);
+    if (!$user->canValidateLeave()) {
+        return response()->json(['success' => false, 'message' => 'Accès non autorisé'], 403);
     }
+
+    $query = DemandeConge::with(['user', 'user.department', 'validateur']);
+
+    if ($request->has('statut') && $request->statut !== 'tous') {
+        $query->where('statut', $request->statut);
+    }
+
+    switch ($user->role->nom) {
+        case 'Superieur':
+            // Voit uniquement ses subordonnés directs
+            $ids = $user->subordinates->pluck('id');
+            $query->whereIn('user_id', $ids);
+            break;
+
+        case 'Responsable RH':
+            // Voit les demandes du même département
+            if ($user->department_id) {
+                $deptUserIds = \App\Models\User::where('department_id', $user->department_id)
+                    ->pluck('id');
+                $query->whereIn('user_id', $deptUserIds);
+            }
+            break;
+
+        case 'Directeur Unité':
+            // Voit les demandes de son département
+            if ($user->department_id) {
+                $deptUserIds = \App\Models\User::where('department_id', $user->department_id)
+                    ->pluck('id');
+                $query->whereIn('user_id', $deptUserIds);
+            }
+            break;
+
+        case 'Directeur RH':
+        case 'Admin':
+            // Voit tout — pas de filtre
+            break;
+
+        default:
+            // Sécurité : ne voit rien
+            $query->whereRaw('1 = 0');
+            break;
+    }
+
+    $demandes = $query->orderBy('created_at', 'desc')->paginate(100);
+
+    return response()->json(['success' => true, 'data' => $demandes]);
+}
 
     private function storeSignature($signatureData, $userId)
     {

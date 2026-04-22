@@ -144,76 +144,87 @@ import { computed, onMounted, ref } from 'vue';
 export default {
   name: 'HistoriqueConges',
   setup() {
-    const demandesStore = useDemandesStore();
-    const filtreAnnee = ref('all');
-    const filtreType = ref('all');
-    const currentPage = ref(1);
-    const itemsPerPage = 5;
+  const demandesStore = useDemandesStore();
+  const filtreAnnee = ref('all');
+  const filtreType = ref('all');
+  const currentPage = ref(1);
+  const itemsPerPage = 5;
 
-    onMounted(async () => {
-      await demandesStore.fetchDemandes();
-    });
+  onMounted(async () => {
+    // Charger les deux sources pour avoir l'historique complet
+    await Promise.all([
+      demandesStore.fetchDemandes(),
+      demandesStore.fetchDemandesAValider(),
+    ]);
+  });
 
-    const congesFormates = computed(() =>
-      demandesStore.demandes.map((d) => ({
-        id: d.id,
-        dateDebut: new Date(d.date_debut).toLocaleDateString('fr-FR'),
-        dateFin: new Date(d.date_fin).toLocaleDateString('fr-FR'),
-        type: d.type_label || d.type_demande,
-        typeClass: d.type_demande?.replace('conge_', '').replace('_', '') || 'annuel',
-        duree: d.duree_jours,
-        statut: d.statut_label || d.statut,
-        statutClass: d.statut,
-        dateDemande: new Date(d.created_at).toLocaleDateString('fr-FR'),
-        annee: new Date(d.created_at).getFullYear().toString(),
-      }))
-    );
-
-    const typeMap = {
-      annuel: 'conge_annuel',
-      fractionnes: 'conge_maladie',
-      autres_legaux: 'absence_exceptionnelle',
-    };
-
-    const congesFiltres = computed(() => {
-      let filtered = congesFormates.value;
-      if (filtreAnnee.value !== 'all') {
-        filtered = filtered.filter(c => c.annee === filtreAnnee.value);
+  const toutesLesDemandes = computed(() => {
+    // Fusionner demandes propres + demandes à valider sans doublons
+    const ids = new Set();
+    const all = [];
+    [...demandesStore.demandes, ...demandesStore.demandesAValider].forEach(d => {
+      if (!ids.has(d.id)) {
+        ids.add(d.id);
+        all.push(d);
       }
-      if (filtreType.value !== 'all') {
-        filtered = filtered.filter(c => c.typeClass === filtreType.value);
-      }
-      const start = (currentPage.value - 1) * itemsPerPage;
-      return filtered.slice(start, start + itemsPerPage);
     });
+    return all;
+  });
 
-    const totalPages = computed(() => {
-      let filtered = congesFormates.value;
-      if (filtreAnnee.value !== 'all') filtered = filtered.filter(c => c.annee === filtreAnnee.value);
-      if (filtreType.value !== 'all') filtered = filtered.filter(c => c.typeClass === filtreType.value);
-      return Math.max(1, Math.ceil(filtered.length / itemsPerPage));
-    });
+  const congesFormates = computed(() =>
+    toutesLesDemandes.value.map((d) => ({
+      id: d.id,
+      dateDebut: new Date(d.date_debut).toLocaleDateString('fr-FR'),
+      dateFin: new Date(d.date_fin).toLocaleDateString('fr-FR'),
+      type: d.type_label || d.type_demande,
+      typeClass: d.type_demande?.replace('conge_', '').replace('_', '') || 'annuel',
+      duree: d.duree_jours,
+      statut: d.statut_label || d.statut,
+      statutClass: d.statut,
+      dateDemande: new Date(d.created_at).toLocaleDateString('fr-FR'),
+      annee: new Date(d.created_at).getFullYear().toString(),
+    }))
+  );
 
-    const getTypeIcon = (typeClass) => {
-      const icons = { annuel: 'fas fa-umbrella-beach', fractionnes: 'fas fa-calendar-week', autres_legaux: 'fas fa-gavel' };
-      return icons[typeClass] || 'fas fa-calendar';
-    };
+  const congesFiltres = computed(() => {
+    let filtered = congesFormates.value;
+    if (filtreAnnee.value !== 'all') {
+      filtered = filtered.filter(c => c.annee === filtreAnnee.value);
+    }
+    if (filtreType.value !== 'all') {
+      filtered = filtered.filter(c => c.typeClass === filtreType.value);
+    }
+    const start = (currentPage.value - 1) * itemsPerPage;
+    return filtered.slice(start, start + itemsPerPage);
+  });
 
-    const getStatusIcon = (statutClass) => {
-      const icons = { approuve: 'fas fa-check-circle', en_attente: 'fas fa-clock', rejete: 'fas fa-times-circle' };
-      return icons[statutClass] || 'fas fa-info-circle';
-    };
+  const totalPages = computed(() => {
+    let filtered = congesFormates.value;
+    if (filtreAnnee.value !== 'all') filtered = filtered.filter(c => c.annee === filtreAnnee.value);
+    if (filtreType.value !== 'all') filtered = filtered.filter(c => c.typeClass === filtreType.value);
+    return Math.max(1, Math.ceil(filtered.length / itemsPerPage));
+  });
 
-    const voirDetails = (conge) => console.log('Détails:', conge);
-    const telechargerAttestion = (conge) => alert(`Attestation pour ${conge.dateDebut} - ${conge.dateFin}`);
+  const getTypeIcon = (typeClass) => {
+    const icons = { annuel: 'fas fa-umbrella-beach', fractionnes: 'fas fa-calendar-week', autres_legaux: 'fas fa-gavel' };
+    return icons[typeClass] || 'fas fa-calendar';
+  };
 
-    return {
-      filtreAnnee, filtreType, currentPage, totalPages,
-      congesFiltres, getTypeIcon, getStatusIcon,
-      voirDetails, telechargerAttestion,
-      loading: computed(() => demandesStore.loading),
-    };
-  },
+  const getStatusIcon = (statutClass) => {
+    const icons = { approuve: 'fas fa-check-circle', en_attente: 'fas fa-clock', rejete: 'fas fa-times-circle' };
+    return icons[statutClass] || 'fas fa-info-circle';
+  };
+
+  const voirDetails = (conge) => console.log('Détails:', conge);
+  const telechargerAttestion = (conge) => alert(`Attestation pour ${conge.dateDebut} - ${conge.dateFin}`);
+
+  return {
+    filtreAnnee, filtreType, currentPage, totalPages,
+    congesFiltres, getTypeIcon, getStatusIcon,
+    voirDetails, telechargerAttestion,
+    loading: computed(() => demandesStore.loading),
+  };
+},
   watch: {
     filtreAnnee() { this.currentPage = 1; },
     filtreType() { this.currentPage = 1; },

@@ -39,8 +39,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Demandes de congés
     Route::apiResource('demandes-conges', DemandeCongeController::class);
-    Route::post('/demandes-conges/{demandeConge}/validate', [DemandeCongeController::class, 'validateDemande']);
-    Route::get('/demandes-a-valider', [DemandeCongeController::class, 'demandesAValider']);
+Route::post('/demandes-conges/{id}/validate', function(\Illuminate\Http\Request $request, $id) {
+    $demande = \App\Models\DemandeConge::findOrFail($id);
+    return app(\App\Http\Controllers\Api\DemandeCongeController::class)->validateDemande($request, $demande);
+});    Route::get('/demandes-a-valider', [DemandeCongeController::class, 'demandesAValider']);
 
     // Gestion des utilisateurs (Admin)
     Route::apiResource('users', UserController::class);
@@ -54,7 +56,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Gestion des départements
     Route::apiResource('departments', DepartmentController::class);
     Route::get('/departments/{department}/stats', [DepartmentController::class, 'stats']);
-
+    Route::get('/admin/demandes', [DemandeCongeController::class, 'indexAdmin']);
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::get('/notifications/unread', [NotificationController::class, 'unread']);

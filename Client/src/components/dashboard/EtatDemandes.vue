@@ -95,24 +95,26 @@
 
 import { useDemandesStore } from '@/stores/demandes';
 import { useNotificationsStore } from '@/stores/notifications';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onActivated, ref } from 'vue';
 
 <script>
 import { useDemandesStore } from '@/stores/demandes';
 import { useNotificationsStore } from '@/stores/notifications';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onActivated, ref } from 'vue';
 
 export default {
   name: 'EtatDemandes',
   setup() {
     const demandesStore = useDemandesStore();
     const notificationsStore = useNotificationsStore();
-
     const filters = ref({ status: 'all', type: 'all', year: 'all' });
 
-    onMounted(async () => {
+    const chargerDemandes = async () => {
       await demandesStore.fetchDemandes();
-    });
+    };
+
+    onMounted(chargerDemandes);
+    onActivated(chargerDemandes);
 
     const filteredDemandes = computed(() =>
       demandesStore.demandes
@@ -146,9 +148,7 @@ export default {
       }
     };
 
-    const voirDetails = (demande) => {
-      console.log('Voir détails:', demande.id);
-    };
+    const voirDetails = (demande) => console.log('Voir détails:', demande.id);
 
     const statusClass = (status) => ({
       'status-pending': status === 'en_attente',
@@ -173,6 +173,72 @@ export default {
   },
 };
 </script>
+
+onMounted(chargerDemandes);
+onActivated(chargerDemandes);
+
+    const filteredDemandes = computed(() => {
+      return demandesStore.demandes.filter((d) => {
+        if (filters.value.status !== 'all' && d.statut !== filters.value.status) return false;
+        if (filters.value.type !== 'all' && d.type_demande !== filters.value.type) return false;
+        if (filters.value.year !== 'all') {
+          const year = new Date(d.date_debut).getFullYear().toString();
+          if (year !== filters.value.year) return false;
+        }
+        return true;
+      });
+    });
+
+    // Formater les données API pour le template existant
+    const demandesFormatted = computed(() =>
+      filteredDemandes.value.map((d) => ({
+        id: d.id,
+        type: d.type_label || d.type_demande,
+        dateDebut: new Date(d.date_debut).toLocaleDateString('fr-FR'),
+        dateFin: new Date(d.date_fin).toLocaleDateString('fr-FR'),
+        duree: d.duree_jours,
+        status: d.statut,
+        etapeActuelle: d.statut === 'en_attente'
+          ? 'En attente de validation'
+          : d.statut === 'approuve' ? 'Approuvé' : 'Rejeté',
+        dateSoumission: new Date(d.created_at).toLocaleDateString('fr-FR'),
+        motifRejet: d.commentaire_validation || null,
+      }))
+    );
+
+    const annulerDemande = async (demande) => {
+      if (confirm(`Êtes-vous sûr de vouloir annuler cette demande ?`)) {
+        await demandesStore.deleteDemande(demande.id);
+        notificationsStore.notifyDemandeCancelled?.('Votre demande');
+      }
+    };
+
+    const voirDetails = (demande) => {
+      console.log('Voir détails:', demande.id);
+    };
+
+    return {
+      filters,
+      filteredDemandes: demandesFormatted,
+      loading: computed(() => demandesStore.loading),
+      annulerDemande,
+      voirDetails,
+    };
+  },
+  methods: {
+    statusClass(status) {
+      return {
+        'status-pending': status === 'en_attente',
+        'status-approved': status === 'approuve',
+        'status-rejected': status === 'rejete',
+      };
+    },
+    formatStatus(status) {
+      const map = { en_attente: 'En attente', approuve: 'Approuvé', rejete: 'Rejeté' };
+      return map[status] || status;
+    },
+  },
+};
 
 <style scoped>
 .etat-demandes {

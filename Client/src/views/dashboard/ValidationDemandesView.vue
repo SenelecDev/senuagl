@@ -228,157 +228,121 @@
 </template>
 
 <script>
-import { useNotificationsStore } from '@/stores/notifications'
+import { useDemandesStore } from '@/stores/demandes';
+import { useNotificationsStore } from '@/stores/notifications';
+import { computed, onMounted, ref } from 'vue';
 
 export default {
-  name: "ValidationDemandesView",
+  name: 'ValidationDemandesView',
   setup() {
-    const notificationsStore = useNotificationsStore()
-    return { notificationsStore }
-  },
-  data() {
-    return {
-      activeTab: "en-attente",
-      showValidationModal: false,
-      selectedDemande: null,
-      validationAction: null,
-      commentaireValidation: "",
-      tabs: [
-        {
-          id: "en-attente",
-          label: "En attente",
-          icon: "fas fa-clock",
-          count: 3,
-        },
-        {
-          id: "approuvees",
-          label: "Approuvées",
-          icon: "fas fa-check-circle",
-          count: 5,
-        },
-        {
-          id: "rejetees",
-          label: "Rejetées",
-          icon: "fas fa-times-circle",
-          count: 2,
-        },
-      ],
-      demandes: [
-        {
-          id: 1,
-          prenom: "Fatou",
-          nom: "Sall",
-          matricule: "EMP001",
-          unite: "Service Informatique",
-          typeDemande: "Congé annuel",
-          dateDebut: "2024-04-15",
-          dateFin: "2024-04-19",
-          duree: 5,
-          motif: "Vacances familiales",
-          status: "en_attente",
-          dateDemande: "2024-03-20",
-        },
-        {
-          id: 2,
-          prenom: "Moussa",
-          nom: "Diallo",
-          matricule: "EMP002",
-          unite: "Service Informatique",
-          typeDemande: "Congé maladie",
-          dateDebut: "2024-03-25",
-          dateFin: "2024-03-27",
-          duree: 3,
-          motif: "Consultation médicale",
-          status: "approuvee",
-          dateDemande: "2024-03-18",
-          dateValidation: "2024-03-19",
-          commentaireValidation: "Demande justifiée avec certificat médical",
-        },
-        {
-          id: 3,
-          prenom: "Aissatou",
-          nom: "Ba",
-          matricule: "EMP003",
-          unite: "Service Informatique",
-          typeDemande: "Report de congés",
-          dateDebut: "2024-05-10",
-          dateFin: "2024-05-15",
-          duree: 6,
-          motif: "Report pour raisons personnelles",
-          status: "rejetee",
-          dateDemande: "2024-03-22",
-          dateValidation: "2024-03-23",
-          commentaireValidation:
-            "Report non justifié, période de forte activité",
-        },
-      ],
+    const demandesStore = useDemandesStore();
+    const notificationsStore = useNotificationsStore();
+
+    const activeTab = ref('en-attente');
+    const showValidationModal = ref(false);
+    const selectedDemande = ref(null);
+    const validationAction = ref(null);
+    const commentaireValidation = ref('');
+
+    onMounted(async () => {
+      await demandesStore.fetchDemandesAValider();
+    });
+
+    const formater = (d) => ({
+      id: d.id,
+      prenom: d.user?.first_name || '—',
+      nom: d.user?.name || '—',
+      matricule: d.user?.matricule || '—',
+      unite: d.user?.department?.name || '—',
+      typeDemande: d.type_label || d.type_demande,
+      dateDebut: d.date_debut,
+      dateFin: d.date_fin,
+      duree: d.duree_jours,
+      motif: d.motif,
+      status: d.statut,
+      dateDemande: d.created_at,
+      dateValidation: d.date_validation,
+      commentaireValidation: d.commentaire_validation,
+    });
+
+    const demandesEnAttente = computed(() =>
+      demandesStore.demandesAValider
+        .filter(d => d.statut === 'en_attente')
+        .map(formater)
+    );
+
+    const demandesApprouvees = computed(() =>
+      demandesStore.demandesAValider
+        .filter(d => d.statut === 'approuve')
+        .map(formater)
+    );
+
+    const demandesRejetees = computed(() =>
+      demandesStore.demandesAValider
+        .filter(d => d.statut === 'rejete')
+        .map(formater)
+    );
+
+    const tabs = computed(() => [
+      { id: 'en-attente', label: 'En attente', icon: 'fas fa-clock', count: demandesEnAttente.value.length },
+      { id: 'approuvees', label: 'Approuvées', icon: 'fas fa-check-circle', count: demandesApprouvees.value.length },
+      { id: 'rejetees', label: 'Rejetées', icon: 'fas fa-times-circle', count: demandesRejetees.value.length },
+    ]);
+
+    const ouvrirModalValidation = (demande, action) => {
+      selectedDemande.value = demande;
+      validationAction.value = action;
+      commentaireValidation.value = '';
+      showValidationModal.value = true;
     };
-  },
-  computed: {
-    demandesEnAttente() {
-      return this.demandes.filter((d) => d.status === "en_attente");
-    },
-    demandesApprouvees() {
-      return this.demandes.filter((d) => d.status === "approuvee");
-    },
-    demandesRejetees() {
-      return this.demandes.filter((d) => d.status === "rejetee");
-    },
-  },
-  methods: {
-    formatDate(dateString) {
-      if (!dateString) return "";
-      const options = { year: "numeric", month: "2-digit", day: "2-digit" };
-      return new Date(dateString).toLocaleDateString("fr-FR", options);
-    },
-    getTypeClass(type) {
-      switch (type) {
-        case "Congé annuel":
-          return "annual";
-        case "Congé maladie":
-          return "sick";
-        case "Report de congés":
-          return "report";
-        default:
-          return "other";
+
+    const fermerModal = () => {
+      showValidationModal.value = false;
+      selectedDemande.value = null;
+      validationAction.value = null;
+      commentaireValidation.value = '';
+    };
+
+    const validerDemande = async () => {
+      if (!selectedDemande.value) return;
+      const result = await demandesStore.validateDemande(
+        selectedDemande.value.id,
+        validationAction.value,
+        commentaireValidation.value
+      );
+      if (result.success) {
+        const demandeur = `${selectedDemande.value.prenom} ${selectedDemande.value.nom}`;
+        notificationsStore.notifyDemandeValidated?.(validationAction.value, demandeur);
+        fermerModal();
+        await demandesStore.fetchDemandesAValider();
+      } else {
+        alert('Erreur : ' + result.error);
       }
-    },
-    ouvrirModalValidation(demande, action) {
-      this.selectedDemande = demande;
-      this.validationAction = action;
-      this.commentaireValidation = "";
-      this.showValidationModal = true;
-    },
-    fermerModal() {
-      this.showValidationModal = false;
-      this.selectedDemande = null;
-      this.validationAction = null;
-      this.commentaireValidation = "";
-    },
-    validerDemande() {
-      if (this.selectedDemande) {
-        const action = this.validationAction;
-        const demandeur = `${this.selectedDemande.prenom} ${this.selectedDemande.nom}`;
-        
-        this.selectedDemande.status = action === "approve" ? "approuvee" : "rejetee";
-        this.selectedDemande.dateValidation = new Date()
-          .toISOString()
-          .split("T")[0];
-        this.selectedDemande.commentaireValidation = this.commentaireValidation;
+    };
 
-        // Notification de validation
-        this.notificationsStore.notifyDemandeValidated(action, demandeur);
+    const voirDetails = (demande) => console.log('Détails:', demande);
 
-        // Ici on ajouterait l'appel API pour sauvegarder
-        console.log("Demande validée:", this.selectedDemande);
+    const formatDate = (dateString) => {
+      if (!dateString) return '';
+      return new Date(dateString).toLocaleDateString('fr-FR');
+    };
 
-        this.fermerModal();
-      }
-    },
-    voirDetails(demande) {
-      // Logique pour voir les détails
-      console.log("Voir détails:", demande);
-    },
+    const getTypeClass = (type) => {
+      if (!type) return 'other';
+      if (type.includes('annuel')) return 'annual';
+      if (type.includes('maladie')) return 'sick';
+      if (type.includes('report')) return 'report';
+      return 'other';
+    };
+
+    return {
+      activeTab, tabs, showValidationModal, selectedDemande,
+      validationAction, commentaireValidation,
+      demandesEnAttente, demandesApprouvees, demandesRejetees,
+      ouvrirModalValidation, fermerModal, validerDemande,
+      voirDetails, formatDate, getTypeClass,
+      loading: computed(() => demandesStore.loading),
+    };
   },
 };
 </script>

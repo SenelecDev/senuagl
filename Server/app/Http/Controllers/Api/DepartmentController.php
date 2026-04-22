@@ -40,13 +40,23 @@ class DepartmentController extends Controller
     {
         try {
             $validated = $request->validate([
-                'name' => 'required|string|max:255|unique:departments,name',
-                'description' => 'nullable|string',
-                'manager_id' => 'nullable|exists:users,id',
-                'budget' => 'nullable|numeric|min:0',
-            ]);
+    'name' => 'required|string|max:255|unique:departments,name',
+    'description' => 'nullable|string',
+    'manager_id' => 'nullable|exists:users,id',
+    'budget' => 'nullable|numeric|min:0',
+]);
 
-            $department = Department::create($validated);
+// Générer un code unique automatiquement
+$baseCode = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $validated['name']), 0, 6));
+$code = $baseCode;
+$counter = 1;
+while (Department::where('code', $code)->exists()) {
+    $code = $baseCode . $counter;
+    $counter++;
+}
+$validated['code'] = $code;
+
+$department = Department::create($validated);
             $department->load('manager');
 
             return response()->json([

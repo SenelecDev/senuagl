@@ -162,7 +162,7 @@
 <script>
 import { useCongesStore } from "@/stores/conges";
 import { useDemandesStore } from "@/stores/demandes";
-import { computed, onMounted } from 'vue';
+import { onMounted, onActivated } from 'vue';
 
 export default {
   name: "DashboardHomeView",
@@ -170,9 +170,12 @@ export default {
     const congesStore = useCongesStore();
     const demandesStore = useDemandesStore();
 
-    onMounted(async () => {
-      await congesStore.fetchStats();
-    });
+   const chargerStats = async () => {
+  await congesStore.fetchStats();
+};
+
+onMounted(chargerStats);
+onActivated(chargerStats);
 
     return { congesStore, demandesStore };
   },

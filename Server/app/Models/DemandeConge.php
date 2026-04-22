@@ -34,6 +34,10 @@ class DemandeConge extends Model
         'pieces_jointes' => 'array',
     ];
 
+
+    protected $appends =
+     ['type_label', 
+     'statut_label'];
     // Relations
     public function user()
     {
@@ -71,6 +75,10 @@ class DemandeConge extends Model
             'annule' => 'Annulé',
         ][$this->statut] ?? $this->statut;
     }
+    public function getRouteKeyName()
+{
+    return 'id';
+}
 
     public function getTypeLabelAttribute()
     {

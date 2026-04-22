@@ -180,6 +180,7 @@ export const useDemandesStore = defineStore('demandes', {
           updateDemande(this.demandes);
           updateDemande(this.demandesAValider);
 
+          await this.fetchDemandesAValider();
           return { success: true, data: response.data.data };
         } else {
           this.error = response.data.message || 'Erreur lors de la validation de la demande';

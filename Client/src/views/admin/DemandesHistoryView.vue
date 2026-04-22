@@ -41,20 +41,12 @@
             class="elevation-0"
           >
             <template v-slot:item.status="{ value }">
-              <v-chip
-                :color="getStatusColor(value)"
-                variant="elevated"
-                size="small"
-              >
+              <v-chip :color="getStatusColor(value)" variant="elevated" size="small">
                 {{ getStatusText(value) }}
               </v-chip>
             </template>
             <template v-slot:item.niveauApprobation="{ value }">
-              <v-chip
-                :color="getNiveauColor(value)"
-                variant="tonal"
-                size="small"
-              >
+              <v-chip :color="getNiveauColor(value)" variant="tonal" size="small">
                 {{ value }}
               </v-chip>
             </template>
@@ -69,14 +61,40 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
-import { useDemandesStore } from "@/stores/demandes.js";
+import { ref, computed, onMounted } from "vue";
+import { adminApi } from "@/services/api";
 
 const search = ref("");
-const demandesStore = useDemandesStore();
+const demandes = ref([]);
+const loading = ref(false);
 
-const allDemandes = computed(() => demandesStore.demandes);
-const loading = computed(() => demandesStore.loading);
+onMounted(async () => {
+  loading.value = true;
+  try {
+    const response = await adminApi.demandes();
+    if (response.data.success) {
+      demandes.value = response.data.data.data || [];
+    }
+  } catch (e) {
+    console.error('Erreur chargement historique:', e);
+  } finally {
+    loading.value = false;
+  }
+});
+
+const allDemandes = computed(() =>
+  demandes.value.map(d => ({
+    nom: d.user?.name || '—',
+    prenom: d.user?.first_name || '—',
+    matricule: d.user?.matricule || '—',
+    typeDemande: d.type_label || d.type_demande,
+    dateDebut: d.date_debut ? new Date(d.date_debut).toLocaleDateString('fr-FR') : '—',
+    dateFin: d.date_fin ? new Date(d.date_fin).toLocaleDateString('fr-FR') : '—',
+    status: d.statut,
+    niveauApprobation: d.statut === 'approuve' ? 'Approuvé'
+      : d.statut === 'rejete' ? 'Rejeté' : 'En attente',
+  }))
+);
 
 const headers = ref([
   { title: "Employé", key: "nom", sortable: true },
@@ -91,8 +109,8 @@ const headers = ref([
 const getStatusColor = (status) => {
   const colors = {
     en_attente: "orange-darken-2",
-    approuvee: "green-darken-1",
-    rejetee: "red-darken-2",
+    approuve: "green-darken-1",
+    rejete: "red-darken-2",
   };
   return colors[status] || "grey";
 };
@@ -100,20 +118,16 @@ const getStatusColor = (status) => {
 const getStatusText = (status) => {
   const texts = {
     en_attente: "En attente",
-    approuvee: "Approuvée",
-    rejetee: "Rejetée",
+    approuve: "Approuvée",
+    rejete: "Rejetée",
   };
   return texts[status] || status;
 };
 
 const getNiveauColor = (niveau) => {
-  if (niveau.includes("Supérieur")) return "blue-lighten-1";
-  if (niveau.includes("Unité")) return "purple-lighten-1";
-  if (niveau.includes("RH")) return "teal-lighten-1";
-  if (niveau.includes("Directeur RH")) return "amber-darken-1";
-  if (niveau === "Terminé") return "green-lighten-1";
-  if (niveau === "Rejeté") return "red-lighten-1";
-  return "grey";
+  if (niveau === 'Approuvé') return "green-lighten-1";
+  if (niveau === 'Rejeté') return "red-lighten-1";
+  return "orange-lighten-1";
 };
 </script>
 

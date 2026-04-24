@@ -4,8 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Models\Role;
-use App\Models\Department;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -17,14 +16,8 @@ class UserController extends Controller
     {
         $query = User::with(['role', 'department', 'manager']);
 
-        // Filtres
-        if ($request->has('role_id') && $request->role_id) {
-            $query->where('role_id', $request->role_id);
-        }
-
-        if ($request->has('department_id') && $request->department_id) {
-            $query->where('department_id', $request->department_id);
-        }
+        if ($request->has('role_id') && $request->role_id) $query->where('role_id', $request->role_id);
+        if ($request->has('department_id') && $request->department_id) $query->where('department_id', $request->department_id);
 
         if ($request->has('search') && $request->search) {
             $search = $request->search;
@@ -36,17 +29,12 @@ class UserController extends Controller
             });
         }
 
-        if ($request->has('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
-        }
+        if ($request->has('is_active')) $query->where('is_active', $request->boolean('is_active'));
 
         $perPage = $request->input('per_page', 15);
         $users = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        return response()->json([
-            'success' => true,
-            'data' => $users,
-        ]);
+        return response()->json(['success' => true, 'data' => $users]);
     }
 
     public function store(Request $request)
@@ -57,9 +45,7 @@ class UserController extends Controller
             'email' => 'required|string|email|max:255|unique:users',
             'matricule' => 'required|string|max:50|unique:users',
             'password' => 'required|string|min:6',
-            'fonction' => 'nullable|string|max:255',
             'telephone' => 'nullable|string|max:20',
-            'adresse' => 'nullable|string|max:500',
             'department_id' => 'nullable|exists:departments,id',
             'role_id' => 'required|exists:roles,id',
             'manager_id' => 'nullable|exists:users,id',
@@ -68,16 +54,11 @@ class UserController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Données invalides',
-                'errors' => $validator->errors(),
-            ], 422);
+            return response()->json(['success' => false, 'message' => 'Données invalides', 'errors' => $validator->errors()], 422);
         }
 
         $userData = $validator->validated();
-        
-        // Mapper les champs vers les vrais noms de colonnes de la base
+
         $mappedUserData = [
             'name' => $userData['nom'],
             'first_name' => $userData['prenom'],
@@ -91,27 +72,20 @@ class UserController extends Controller
             'date_embauche' => $userData['date_embauche'] ?? null,
             'conges_annuels_total' => $userData['conges_annuels_total'] ?? 30,
         ];
-        
         $mappedUserData['conges_annuels_restants'] = $mappedUserData['conges_annuels_total'];
 
         $user = User::create($mappedUserData);
         $user->load(['role', 'department', 'manager']);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Utilisateur créé avec succès',
-            'data' => $user,
-        ], 201);
+        ActivityLogger::success('USER_CREATED', "Utilisateur {$user->full_name} ({$user->role?->nom}) créé", 'users', ['user_id' => $user->id, 'role' => $user->role?->nom]);
+
+        return response()->json(['success' => true, 'message' => 'Utilisateur créé avec succès', 'data' => $user], 201);
     }
 
     public function show(User $user)
     {
         $user->load(['role', 'department', 'manager', 'subordinates']);
-
-        return response()->json([
-            'success' => true,
-            'data' => $user,
-        ]);
+        return response()->json(['success' => true, 'data' => $user]);
     }
 
     public function update(Request $request, User $user)
@@ -122,9 +96,7 @@ class UserController extends Controller
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'matricule' => ['required', 'string', 'max:50', Rule::unique('users')->ignore($user->id)],
             'password' => 'nullable|string|min:6',
-            'fonction' => 'nullable|string|max:255',
             'telephone' => 'nullable|string|max:20',
-            'adresse' => 'nullable|string|max:500',
             'department_id' => 'nullable|exists:departments,id',
             'role_id' => 'required|exists:roles,id',
             'manager_id' => 'nullable|exists:users,id',
@@ -135,16 +107,11 @@ class UserController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Données invalides',
-                'errors' => $validator->errors(),
-            ], 422);
+            return response()->json(['success' => false, 'message' => 'Données invalides', 'errors' => $validator->errors()], 422);
         }
 
         $userData = $validator->validated();
 
-        // Hash password si fourni
         if (!empty($userData['password'])) {
             $userData['password'] = Hash::make($userData['password']);
         } else {
@@ -154,92 +121,68 @@ class UserController extends Controller
         $user->update($userData);
         $user->load(['role', 'department', 'manager']);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Utilisateur mis à jour avec succès',
-            'data' => $user,
-        ]);
+        ActivityLogger::info('USER_UPDATED', "Utilisateur {$user->full_name} modifié", 'users', ['user_id' => $user->id]);
+
+        return response()->json(['success' => true, 'message' => 'Utilisateur mis à jour avec succès', 'data' => $user]);
     }
 
     public function destroy(User $user)
     {
-        // Note: La contrainte ON DELETE CASCADE gère automatiquement la suppression des demandes de congés
-        // Pas besoin de vérifier manuellement l'existence des demandes de congés
-        
+        $fullName = $user->full_name;
+        $userId = $user->id;
         $user->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Utilisateur supprimé avec succès',
-        ]);
+        ActivityLogger::warning('USER_DELETED', "Utilisateur {$fullName} supprimé", 'users', ['user_id' => $userId]);
+        return response()->json(['success' => true, 'message' => 'Utilisateur supprimé avec succès']);
     }
 
     public function getManagers()
     {
         $managers = User::with(['role', 'department'])
-            ->whereHas('role', function($query) {
-                $query->whereIn('name', ['Directeur RH', 'Responsable RH', 'Directeur Unité', 'Superieur']);
+            ->whereHas('role', function ($query) {
+                $query->whereIn('nom', ['Directeur RH', 'Responsable RH', 'Directeur Unité', 'Superieur']);
             })
             ->where('is_active', true)
             ->get()
             ->map(function ($user) {
                 return [
                     'id' => $user->id,
-                    'full_name' => $user->name . ' ' . $user->first_name,
+                    'full_name' => $user->first_name . ' ' . $user->name,
                     'role' => $user->role->nom,
-                    'department' => $user->department->name ?? 'N/A',
+                    'department' => $user->department?->name ?? 'N/A',
                 ];
             });
 
-        return response()->json([
-            'success' => true,
-            'data' => $managers,
-        ]);
+        return response()->json(['success' => true, 'data' => $managers]);
     }
 
     public function toggleStatus(User $user)
     {
         $user->update(['is_active' => !$user->is_active]);
+        $status = $user->is_active ? 'activé' : 'désactivé';
+        ActivityLogger::info('USER_STATUS_CHANGED', "Compte de {$user->full_name} {$status}", 'users', ['user_id' => $user->id, 'is_active' => $user->is_active]);
 
-        return response()->json([
-            'success' => true,
-            'message' => $user->is_active ? 'Utilisateur activé' : 'Utilisateur désactivé',
-            'data' => $user,
-        ]);
+        return response()->json(['success' => true, 'message' => "Utilisateur {$status}", 'data' => $user]);
     }
 
     public function resetPassword(Request $request, User $user)
     {
-        // Si des données de mot de passe sont fournies, les valider
         if ($request->has('password')) {
             $validator = Validator::make($request->all(), [
                 'password' => 'required|string|min:8|confirmed',
             ]);
 
             if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Données invalides',
-                    'errors' => $validator->errors(),
-                ], 422);
+                return response()->json(['success' => false, 'message' => 'Données invalides', 'errors' => $validator->errors()], 422);
             }
-
             $newPassword = $request->password;
         } else {
-            // Générer un mot de passe temporaire si aucune donnée n'est fournie
             $newPassword = 'temp' . rand(1000, 9999);
         }
-        
-        $user->update([
-            'password' => Hash::make($newPassword),
-        ]);
 
-        $response = [
-            'success' => true,
-            'message' => 'Mot de passe réinitialisé avec succès',
-        ];
+        $user->update(['password' => Hash::make($newPassword)]);
+        ActivityLogger::info('PASSWORD_RESET', "Mot de passe de {$user->full_name} réinitialisé", 'users', ['user_id' => $user->id]);
 
-        // Si c'était un mot de passe temporaire, l'inclure dans la réponse
+        $response = ['success' => true, 'message' => 'Mot de passe réinitialisé avec succès'];
         if (!$request->has('password')) {
             $response['data'] = ['new_password' => $newPassword];
         }

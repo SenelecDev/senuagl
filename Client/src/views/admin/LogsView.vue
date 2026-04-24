@@ -29,38 +29,61 @@
       </v-card-title>
 
       <v-data-table
-        :headers="headers"
-        :items="filteredLogs"
-        :search="search"
-        :items-per-page="15"
-        class="elevation-0"
-        hover
-      >
-        <template v-slot:item.level="{ item }">
-          <v-chip :color="getLevelColor(item.level)" dark small label>
-            {{ item.level }}
-          </v-chip>
-        </template>
-        <template v-slot:item.timestamp="{ item }">
-          <span>{{ new Date(item.timestamp).toLocaleString() }}</span>
-        </template>
-      </v-data-table>
+  :headers="headers"
+  :items="filteredLogs"
+  :loading="loading"
+  :items-per-page="15"
+  class="elevation-0"
+  hover
+>
+  <template v-slot:item.level="{ item }">
+    <v-chip :color="getLevelColor(item.level)" dark small label>
+      {{ item.level }}
+    </v-chip>
+  </template>
+  <template v-slot:item.timestamp="{ item }">
+    <span>{{ new Date(item.timestamp).toLocaleString('fr-FR') }}</span>
+  </template>
+</v-data-table>
     </v-card>
   </v-container>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
+import { adminApi } from "@/services/api";
 
 const search = ref("");
 const logLevels = ["INFO", "WARN", "ERROR", "SUCCESS"];
 const selectedLevels = ref([]);
+const logs = ref([]);
+const loading = ref(false);
 
-const headers = ref([
-  { title: "Date", key: "timestamp", align: "start", width: "200px" },
-  { title: "Niveau", key: "level", align: "center", width: "120px" },
-  { title: "Message", key: "message", sortable: false },
-]);
+onMounted(async () => {
+  loading.value = true;
+  try {
+    const response = await adminApi.activityLogs();
+    if (response.data.success) {
+      logs.value = (response.data.data.data || []).map(log => ({
+        id: log.id,
+        timestamp: log.created_at,
+        level: log.level,
+        message: log.message,
+        user: log.user ? `${log.user.first_name} ${log.user.name}` : 'Système',
+        module: log.module || '—',
+      }));
+    }
+  } catch (e) {
+    console.error('Erreur chargement logs:', e);
+  } finally {
+    loading.value = false;
+  }
+});
+
+const filteredLogs = computed(() => {
+  if (selectedLevels.value.length === 0) return logs.value;
+  return logs.value.filter(log => selectedLevels.value.includes(log.level));
+});
 
 const getLevelColor = (level) => {
   const colors = {
@@ -72,72 +95,13 @@ const getLevelColor = (level) => {
   return colors[level] || "grey";
 };
 
-// Données de logs factices
-const logs = ref([
-  {
-    id: 1,
-    timestamp: "2024-05-21T10:00:00Z",
-    level: "SUCCESS",
-    message: 'Utilisateur "A. Ndiaye" créé avec succès.',
-  },
-  {
-    id: 2,
-    timestamp: "2024-05-21T10:05:12Z",
-    level: "INFO",
-    message: 'Rôle "Superieur" assigné à "M. Fall".',
-  },
-  {
-    id: 3,
-    timestamp: "2024-05-21T10:15:30Z",
-    level: "WARN",
-    message: 'Tentative de connexion échouée pour l\'utilisateur "guest".',
-  },
-  {
-    id: 4,
-    timestamp: "2024-05-21T11:00:00Z",
-    level: "INFO",
-    message: "Mise à jour des paramètres de sécurité effectuée par l'admin.",
-  },
-  {
-    id: 5,
-    timestamp: "2024-05-21T11:30:45Z",
-    level: "ERROR",
-    message:
-      "Impossible de se connecter à la base de données. Erreur: Timeout.",
-  },
-  {
-    id: 6,
-    timestamp: "2024-05-21T12:00:00Z",
-    level: "INFO",
-    message: "Génération du rapport mensuel des congés.",
-  },
-  {
-    id: 7,
-    timestamp: "2024-05-21T12:02:15Z",
-    level: "SUCCESS",
-    message: 'Rapport "Conges_Mai_2024.pdf" généré.',
-  },
-  {
-    id: 8,
-    timestamp: "2024-05-21T13:10:05Z",
-    level: "WARN",
-    message:
-      'Le champ "email" est manquant pour la création d\'un utilisateur.',
-  },
-  {
-    id: 9,
-    timestamp: "2024-05-21T14:00:00Z",
-    level: "ERROR",
-    message: "Service de notification inaccessible. URL: smtp.example.com",
-  },
+const headers = ref([
+  { title: "Date", key: "timestamp", width: "200px" },
+  { title: "Niveau", key: "level", align: "center", width: "120px" },
+  { title: "Utilisateur", key: "user", width: "150px" },
+  { title: "Module", key: "module", width: "120px" },
+  { title: "Message", key: "message", sortable: false },
 ]);
-
-const filteredLogs = computed(() => {
-  if (selectedLevels.value.length === 0) {
-    return logs.value;
-  }
-  return logs.value.filter((log) => selectedLevels.value.includes(log.level));
-});
 </script>
 
 <style scoped>

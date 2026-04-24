@@ -9,7 +9,8 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\DepartmentController;
-
+//use App\Http\Controllers\Api\ActivityLogController;
+use App\Http\Controllers\Api\ActivityLogController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -36,7 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
     Route::get('/dashboard/recent-activity', [DashboardController::class, 'recentActivity']);
     Route::get('/dashboard/stats-manager', [DashboardController::class, 'statsManager']);
-
+    Route::get('/admin/activity-logs', [ActivityLogController::class, 'index']);
     // Demandes de congés
     Route::apiResource('demandes-conges', DemandeCongeController::class);
 Route::post('/demandes-conges/{id}/validate', function(\Illuminate\Http\Request $request, $id) {
@@ -62,7 +63,7 @@ Route::post('/demandes-conges/{id}/validate', function(\Illuminate\Http\Request 
     Route::get('/notifications/unread', [NotificationController::class, 'unread']);
     Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
     Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
-
+    //Route::get('/admin/activity-logs', [ActivityLogController::class, 'index']);
 });
 
 // Route de test

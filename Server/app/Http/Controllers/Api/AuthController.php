@@ -7,7 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
+use App\Services\ActivityLogger;
 
 class AuthController extends Controller
 {
@@ -26,11 +26,13 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $user = User::with(['role', 'department'])->where('email', $request->email)
-                   ->orWhere('matricule', $request->email)
-                   ->first();
+        $user = User::with(['role', 'department'])
+            ->where('email', $request->email)
+            ->orWhere('matricule', $request->email)
+            ->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
+            ActivityLogger::warning('LOGIN_FAILED', "Tentative de connexion échouée pour {$request->email}", 'auth');
             return response()->json([
                 'success' => false,
                 'message' => 'Identifiants incorrects',
@@ -38,6 +40,7 @@ class AuthController extends Controller
         }
 
         if (!$user->is_active) {
+            ActivityLogger::warning('LOGIN_BLOCKED', "Compte désactivé - tentative de connexion pour {$user->full_name}", 'auth', ['user_id' => $user->id]);
             return response()->json([
                 'success' => false,
                 'message' => 'Compte désactivé',
@@ -45,6 +48,8 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        ActivityLogger::success('LOGIN', "Connexion réussie pour {$user->full_name}", 'auth', ['user_id' => $user->id, 'role' => $user->role?->nom]);
 
         return response()->json([
             'success' => true,
@@ -61,12 +66,12 @@ class AuthController extends Controller
                     'role' => $user->role ? [
                         'id' => $user->role->id,
                         'name' => $user->role->nom,
-                        'description' => $user->role->description
+                        'description' => $user->role->description,
                     ] : null,
                     'department' => $user->department ? [
                         'id' => $user->department->id,
                         'name' => $user->department->name,
-                        'description' => $user->department->description
+                        'description' => $user->department->description,
                     ] : null,
                     'is_active' => $user->is_active,
                     'is_manager' => $user->isManager(),
@@ -79,7 +84,9 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+        ActivityLogger::info('LOGOUT', "Déconnexion de {$user->full_name}", 'auth', ['user_id' => $user->id]);
+        $user->currentAccessToken()->delete();
 
         return response()->json([
             'success' => true,
@@ -106,17 +113,17 @@ class AuthController extends Controller
                     'role' => $user->role ? [
                         'id' => $user->role->id,
                         'name' => $user->role->nom,
-                        'description' => $user->role->description
+                        'description' => $user->role->description,
                     ] : null,
                     'department' => $user->department ? [
                         'id' => $user->department->id,
                         'name' => $user->department->name,
-                        'description' => $user->department->description
+                        'description' => $user->department->description,
                     ] : null,
                     'manager' => $user->manager ? [
                         'id' => $user->manager->id,
                         'name' => $user->manager->name,
-                        'full_name' => $user->manager->first_name . ' ' . $user->manager->name
+                        'full_name' => $user->manager->first_name . ' ' . $user->manager->name,
                     ] : null,
                     'is_active' => $user->is_active,
                     'is_manager' => $user->isManager(),
@@ -135,9 +142,7 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Token rafraîchi',
-            'data' => [
-                'token' => $token,
-            ],
+            'data' => ['token' => $token],
         ]);
     }
 }

@@ -6,7 +6,7 @@ const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost/api';
 // Configuration de base d'Axios avec plus de robustesse
 const apiClient = axios.create({
   baseURL: API_URL,
-  timeout: 30000, // 30 secondes
+  timeout: 60000, // 60 secondes
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -93,6 +93,7 @@ export const authApi = {
   refresh: () => apiClient.post('/refresh'),
 };
 
+
 export const dashboardApi = {
   stats: () => apiClient.get('/dashboard/stats'),
   recentActivity: () => apiClient.get('/dashboard/recent-activity'),
@@ -140,6 +141,7 @@ export const demandesApi = {
 
 export const adminApi = {
   demandes: (params = {}) => apiClient.get('/admin/demandes', { params }),
+  activityLogs: (params = {}) => apiClient.get('/admin/activity-logs', { params }),
 };
 
 export const notificationsApi = {

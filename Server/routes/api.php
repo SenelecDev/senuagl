@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\DepartmentController;
 //use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\ActivityLogController;
+use App\Http\Controllers\Api\PlanningController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -64,7 +65,18 @@ Route::post('/demandes-conges/{id}/validate', function(\Illuminate\Http\Request 
     Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
     Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
     //Route::get('/admin/activity-logs', [ActivityLogController::class, 'index']);
-});
+
+    // Planning (Admin)
+    Route::get('/planning/plans', [PlanningController::class, 'indexPlans']);
+    Route::post('/planning/plans', [PlanningController::class, 'storePlan']);
+    Route::put('/planning/plans/{plan}', [PlanningController::class, 'updatePlan']);
+    Route::delete('/planning/plans/{plan}', [PlanningController::class, 'destroyPlan']);
+
+    Route::get('/planning/holidays', [PlanningController::class, 'indexHolidays']);
+    Route::post('/planning/holidays', [PlanningController::class, 'storeHoliday']);
+    Route::put('/planning/holidays/{holiday}', [PlanningController::class, 'updateHoliday']);
+    Route::delete('/planning/holidays/{holiday}', [PlanningController::class, 'destroyHoliday']);
+    });
 
 // Route de test
 Route::get('/test', function () {

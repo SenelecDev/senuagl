@@ -30,7 +30,7 @@ services:
     environment:
       POSTGRES_DB: bd-app-conges
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: admin123
+      POSTGRES_PASSWORD: admin123 aqa11q°!°°°°°°°°°°°°°°°°°a
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:

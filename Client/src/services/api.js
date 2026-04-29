@@ -151,6 +151,21 @@ export const notificationsApi = {
   markAllAsRead: () => apiClient.patch('/notifications/read-all'),
 };
 
+export const planningApi = {
+  plans: {
+    list: () => apiClient.get('/planning/plans'),
+    create: (data) => apiClient.post('/planning/plans', data),
+    update: (id, data) => apiClient.put(`/planning/plans/${id}`, data),
+    delete: (id) => apiClient.delete(`/planning/plans/${id}`),
+  },
+  holidays: {
+    list: () => apiClient.get('/planning/holidays'),
+    create: (data) => apiClient.post('/planning/holidays', data),
+    update: (id, data) => apiClient.put(`/planning/holidays/${id}`, data),
+    delete: (id) => apiClient.delete(`/planning/holidays/${id}`),
+  },
+};
+
 export const testApi = {
   ping: () => apiClient.get('/test'),
 };

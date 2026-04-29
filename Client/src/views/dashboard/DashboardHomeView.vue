@@ -156,31 +156,115 @@
         </router-link>
       </div>
     </div>
+    <!-- Calendrier RH -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">
+      <h2>Calendrier RH</h2>
+      <p>Périodes de congé et jours fériés définis par la direction</p>
+    </div>
+  </div>
+
+  <div class="calendrier-grid">
+    <!-- Périodes de congé -->
+    <div class="calendrier-card">
+      <div class="calendrier-card-header">
+        <div class="calendrier-icon" style="background: linear-gradient(135deg, #008a9b, #006d7a)">
+          <i class="fas fa-calendar-check"></i>
+        </div>
+        <h3>Périodes de Congé</h3>
+      </div>
+      <div v-if="leavePlans.length === 0" class="calendrier-empty">
+        <i class="fas fa-calendar-times"></i>
+        <p>Aucune période définie</p>
+      </div>
+      <div v-for="plan in leavePlans" :key="plan.id" class="calendrier-item">
+        <div class="calendrier-item-icon">
+          <i class="fas fa-umbrella-beach"></i>
+        </div>
+        <div class="calendrier-item-info">
+          <span class="calendrier-item-name">{{ plan.name }}</span>
+          <span class="calendrier-item-dates">
+            {{ formatDate(plan.start_date) }} → {{ formatDate(plan.end_date) }}
+          </span>
+        </div>
+        <span class="calendrier-item-badge badge-annuel">
+          {{ calculateDuration(plan.start_date, plan.end_date) }}j
+        </span>
+      </div>
+    </div>
+
+    <!-- Jours fériés -->
+    <div class="calendrier-card">
+      <div class="calendrier-card-header">
+        <div class="calendrier-icon" style="background: linear-gradient(135deg, #261555, #4c1d95)">
+          <i class="fas fa-star"></i>
+        </div>
+        <h3>Jours Fériés</h3>
+      </div>
+      <div v-if="holidays.length === 0" class="calendrier-empty">
+        <i class="fas fa-calendar-times"></i>
+        <p>Aucun jour férié défini</p>
+      </div>
+      <div v-for="holiday in upcomingHolidays" :key="holiday.id" class="calendrier-item">
+        <div class="calendrier-item-icon" style="background: rgba(38,21,85,0.1)">
+          <i class="fas fa-star" style="color: #261555"></i>
+        </div>
+        <div class="calendrier-item-info">
+          <span class="calendrier-item-name">{{ holiday.name }}</span>
+          <span class="calendrier-item-dates">{{ formatDate(holiday.date) }}</span>
+        </div>
+        <span class="calendrier-item-badge" style="background:rgba(38,21,85,0.1);color:#261555">
+          Férié
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
   </div>
 </template>
 
 <script>
 import { useCongesStore } from "@/stores/conges";
 import { useDemandesStore } from "@/stores/demandes";
-import { onMounted, onActivated } from 'vue';
+import { planningApi } from "@/services/api";
+import { onMounted, onActivated, ref } from 'vue';
 
 export default {
   name: "DashboardHomeView",
   setup() {
     const congesStore = useCongesStore();
     const demandesStore = useDemandesStore();
+    const leavePlans = ref([]);
+    const holidays = ref([]);
 
-   const chargerStats = async () => {
-  await congesStore.fetchStats();
-};
+    const chargerStats = async () => {
+      await congesStore.fetchStats();
+    };
 
-onMounted(chargerStats);
-onActivated(chargerStats);
+    const chargerCalendrier = async () => {
+      try {
+        const [plansRes, holidaysRes] = await Promise.all([
+          planningApi.plans.list(),
+          planningApi.holidays.list(),
+        ]);
+        if (plansRes.data.success) leavePlans.value = plansRes.data.data;
+        if (holidaysRes.data.success) holidays.value = holidaysRes.data.data;
+      } catch (e) {
+        console.error('Erreur calendrier:', e);
+      }
+    };
 
-    return { congesStore, demandesStore };
+    onMounted(async () => {
+      await chargerStats();
+      await chargerCalendrier();
+    });
+    onActivated(chargerStats);
+
+    return { congesStore, demandesStore, leavePlans, holidays };
   },
-   
- computed: {
+
+  computed: {
     statsCards() {
       return [
         { value: this.congesStore.stats.conges_restants, label: 'Congés Restants', sub: 'jours disponibles', icon: 'fa-calendar-check' },
@@ -192,7 +276,11 @@ onActivated(chargerStats);
     prochainsConges() {
       return this.congesStore.prochainsConges;
     },
-
+    upcomingHolidays() {
+  return this.holidays
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
+    .slice(0, 5);
+},
     routePrefix() {
       const path = this.$route.path;
       if (path.startsWith('/superieur')) return '/superieur';
@@ -203,8 +291,8 @@ onActivated(chargerStats);
     },
     isValidationRole() {
       const path = this.$route.path;
-      return path.startsWith('/superieur') || 
-             path.startsWith('/directeur-unite') || 
+      return path.startsWith('/superieur') ||
+             path.startsWith('/directeur-unite') ||
              path.startsWith('/responsable-rh') ||
              path.startsWith('/directeur-rh');
     },
@@ -212,6 +300,7 @@ onActivated(chargerStats);
       return this.$route.path.startsWith('/directeur-rh');
     }
   },
+
   methods: {
     formatDate(date) {
       return new Date(date).toLocaleDateString("fr-FR");
@@ -219,16 +308,13 @@ onActivated(chargerStats);
     calculateDuration(dateDebut, dateFin) {
       const debut = new Date(dateDebut);
       const fin = new Date(dateFin);
-      const diffTime = Math.abs(fin - debut);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays;
+      return Math.ceil(Math.abs(fin - debut) / (1000 * 60 * 60 * 24)) + 1;
     },
     getTypeClass(type) {
       const classes = {
         "Congé annuel": "badge-annuel",
         "Congés fractionnés": "badge-fractionnes",
         "Autres congés légaux": "badge-autres_legaux",
-        "Congés Annuels": "badge-annuel",
         "Congés Maladie": "badge-maladie",
       };
       return classes[type] || "badge-default";
@@ -728,5 +814,131 @@ onActivated(chargerStats);
   .conge-icon {
     margin-right: 0;
   }
+
+  /* Calendrier RH */
+.calendrier-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.calendrier-card {
+  background: white;
+  border-radius: 20px;
+  padding: 1.5rem;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.calendrier-card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.calendrier-card-header h3 {
+  color: #261555;
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.calendrier-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.calendrier-icon i {
+  color: white;
+  font-size: 18px;
+}
+
+.calendrier-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  transition: all 0.2s ease;
+}
+
+.calendrier-item:hover {
+  border-color: #008a9b;
+  background: #f0fdfa;
+}
+
+.calendrier-item-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(0, 138, 155, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.calendrier-item-icon i {
+  font-size: 14px;
+  color: #008a9b;
+}
+
+.calendrier-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.calendrier-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.calendrier-item-dates {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.calendrier-item-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.calendrier-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #94a3b8;
+}
+
+.calendrier-empty i {
+  font-size: 32px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.calendrier-empty p {
+  font-size: 13px;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .calendrier-grid {
+    grid-template-columns: 1fr;
+  }
+}
 }
 </style>

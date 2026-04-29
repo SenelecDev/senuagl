@@ -106,86 +106,99 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
-import { useLeavePlansStore } from "@/stores/leavePlansStore";
-import { useHolidaysStore } from "@/stores/holidaysStore";
-import { storeToRefs } from "pinia";
+import { ref, computed, onMounted } from "vue";
+import { planningApi } from "@/services/api";
 
 const tab = ref("plans");
-
-// Store pour les périodes de congé
-const leavePlansStore = useLeavePlansStore();
-const { leavePlans } = storeToRefs(leavePlansStore);
-const { addPlan, updatePlan, deletePlan } = leavePlansStore;
-
-// Store pour les jours fériés
-const holidaysStore = useHolidaysStore();
-const { holidays } = storeToRefs(holidaysStore);
-const { addHoliday, updateHoliday, deleteHoliday } = holidaysStore;
-
-// State pour les périodes de congé
+const leavePlans = ref([]);
+const holidays = ref([]);
 const planDialog = ref(false);
+const holidayDialog = ref(false);
 const editedPlan = ref({});
+const editedHoliday = ref({});
+const loading = ref(false);
+
 const planHeaders = ref([
   { title: "Nom", key: "name" },
-  { title: "Début", key: "startDate" },
-  { title: "Fin", key: "endDate" },
+  { title: "Début", key: "start_date" },
+  { title: "Fin", key: "end_date" },
   { title: "Actions", key: "actions", sortable: false },
 ]);
-const planFormTitle = computed(() =>
-  editedPlan.value.id ? "Modifier la Période" : "Nouvelle Période"
-);
 
-function openPlanDialog(plan) {
-  editedPlan.value = plan ? { ...plan } : {};
-  planDialog.value = true;
-}
-function closePlanDialog() {
-  planDialog.value = false;
-}
-function savePlan() {
-  if (editedPlan.value.id) {
-    updatePlan(editedPlan.value);
-  } else {
-    addPlan(editedPlan.value);
-  }
-  closePlanDialog();
-}
-
-// State pour les jours fériés
-const holidayDialog = ref(false);
-const editedHoliday = ref({});
 const holidayHeaders = ref([
   { title: "Nom", key: "name" },
   { title: "Date", key: "date" },
   { title: "Actions", key: "actions", sortable: false },
 ]);
-const holidayFormTitle = computed(() =>
-  editedHoliday.value.id ? "Modifier le Jour Férié" : "Nouveau Jour Férié"
-);
+
+const planFormTitle = computed(() => editedPlan.value.id ? "Modifier la Période" : "Nouvelle Période");
+const holidayFormTitle = computed(() => editedHoliday.value.id ? "Modifier le Jour Férié" : "Nouveau Jour Férié");
+
+onMounted(async () => {
+  await Promise.all([fetchPlans(), fetchHolidays()]);
+});
+
+async function fetchPlans() {
+  const r = await planningApi.plans.list();
+  if (r.data.success) leavePlans.value = r.data.data;
+}
+
+async function fetchHolidays() {
+  const r = await planningApi.holidays.list();
+  if (r.data.success) holidays.value = r.data.data;
+}
+
+function openPlanDialog(plan) {
+  editedPlan.value = plan ? { ...plan, startDate: plan.start_date, endDate: plan.end_date } : {};
+  planDialog.value = true;
+}
+function closePlanDialog() { planDialog.value = false; }
+
+async function savePlan() {
+  const payload = { name: editedPlan.value.name, start_date: editedPlan.value.startDate, end_date: editedPlan.value.endDate };
+  if (editedPlan.value.id) {
+    await planningApi.plans.update(editedPlan.value.id, payload);
+  } else {
+    await planningApi.plans.create(payload);
+  }
+  closePlanDialog();
+  await fetchPlans();
+}
+
+async function deletePlan(id) {
+  if (confirm('Supprimer cette période ?')) {
+    await planningApi.plans.delete(id);
+    await fetchPlans();
+  }
+}
 
 function openHolidayDialog(holiday) {
   editedHoliday.value = holiday ? { ...holiday } : {};
   holidayDialog.value = true;
 }
-function closeHolidayDialog() {
-  holidayDialog.value = false;
-}
-function saveHoliday() {
+function closeHolidayDialog() { holidayDialog.value = false; }
+
+async function saveHoliday() {
+  const payload = { name: editedHoliday.value.name, date: editedHoliday.value.date };
   if (editedHoliday.value.id) {
-    updateHoliday(editedHoliday.value);
+    await planningApi.holidays.update(editedHoliday.value.id, payload);
   } else {
-    addHoliday(editedHoliday.value);
+    await planningApi.holidays.create(payload);
   }
   closeHolidayDialog();
+  await fetchHolidays();
+}
+
+async function deleteHoliday(id) {
+  if (confirm('Supprimer ce jour férié ?')) {
+    await planningApi.holidays.delete(id);
+    await fetchHolidays();
+  }
 }
 
 function openActiveDialog() {
-  if (tab.value === "plans") {
-    openPlanDialog();
-  } else {
-    openHolidayDialog();
-  }
+  if (tab.value === "plans") openPlanDialog();
+  else openHolidayDialog();
 }
 </script>
 

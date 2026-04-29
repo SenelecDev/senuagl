@@ -111,9 +111,9 @@ class AuthController extends Controller
                     'phone' => $user->phone,
                     'full_name' => $user->first_name . ' ' . $user->name,
                     'role' => $user->role ? [
-                        'id' => $user->role->id,
-                        'name' => $user->role->nom,
-                        'description' => $user->role->description,
+                    'id' => $user->role->id,
+                    'name' => $user->role->nom,
+                    'description' => $user->role->description,
                     ] : null,
                     'department' => $user->department ? [
                         'id' => $user->department->id,

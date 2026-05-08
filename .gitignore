@@ -1,0 +1,39 @@
+# Environment files - SENSIBLES (ne pas tracker)
+.env
+.env.local
+.env.*.local
+
+# Mais on TRACK les templates
+!.env.example
+!.env.docker
+
+# IDE & OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporaires
+.tmp/
+temp/
+
+# OS-specific
+.cursor/
+
+# Build outputs
+dist/
+build/
+
+# Fichiers de test/cache
+.phpunit.cache/
+.phpactor.json
+
+# Dependency locks - on les TRACK pour reproductibilité
+# composer.lock - TRACKED
+# package-lock.json - TRACKED

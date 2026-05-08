@@ -13,6 +13,11 @@ Route::get('/test', function () {
     return response()->json(['message' => 'API OK']);
 });
 
+// Health check endpoint (no auth required)
+Route::get('/health', function () {
+    return response()->json(['status' => 'healthy', 'timestamp' => now()], 200);
+});
+
 Route::post('login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {

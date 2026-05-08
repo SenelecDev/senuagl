@@ -30,7 +30,9 @@ class DatabaseSeeder extends Seeder
             UniteSeeder::class,
             PosteSeeder::class,
             AgentSeeder::class,
-            AvancementSeeder::class,  
+            AvancementSeeder::class, 
+            UpdateAgentLocationsSeeder::class,
+
         ]);
     }
 }

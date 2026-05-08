@@ -3,191 +3,186 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Avancement;
 use App\Models\Agent;
-use App\Models\Poste;
 use App\Models\GF;
 use App\Models\NR;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
+use Illuminate\Validation\Rule;
 
-class AgentController extends Controller
+class AvancementController extends Controller
 {
-    // Liste des agents avec filtres
+    /**
+     * Liste des avancements (avec filtres optionnels)
+     */
     public function index(Request $request)
     {
-        $query = Agent::with(['poste.unite', 'gfActuel', 'nrActuel']);
-        
-        // Filtres
-        if ($request->has('service')) {
-            $query->whereHas('poste.unite', function ($q) use ($request) {
-                $q->where('id_unite', $request->service);
-            });
+        $query = Avancement::with(['agent', 'gfAncien', 'gfNouveau', 'nrAncien', 'nrNouveau']);
+
+        if ($request->has('agent')) {
+            $query->where('matricule_agent', $request->agent);
         }
-        
-        if ($request->has('gf')) {
-            $query->where('id_gf_actuel', $request->gf);
-        }
-        
-        if ($request->has('sexe')) {
-            $query->where('sexe', $request->sexe);
-        }
-        
-        if ($request->has('search')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('nom', 'like', '%' . $request->search . '%')
-                  ->orWhere('prenom', 'like', '%' . $request->search . '%')
-                  ->orWhere('matricule', 'like', '%' . $request->search . '%');
-            });
-        }
-        
-        if ($request->has('plafonne') && $request->plafonne == 'true') {
-            $query->whereRaw('EXISTS (
-                SELECT 1 FROM postes p 
-                JOIN gfs gf_max ON p.tube_max = gf_max.id_gf
-                JOIN gfs gf_agent ON agents.id_gf_actuel = gf_agent.id_gf
-                WHERE p.id_post = agents.id_post 
-                AND gf_agent.ordre >= gf_max.ordre
-            )');
-        }
-        
-        $agents = $query->orderBy('nom')->paginate(20);
-        
-        return response()->json($agents);
-    }
-    
-    // Détail d'un agent
-    public function show($matricule)
-    {
-        $agent = Agent::with([
-            'poste.unite.parent',
-            'poste.tubeMin',
-            'poste.tubeMax',
-            'gfActuel',
-            'nrActuel',
-            'avancements' => function ($q) {
-                $q->with(['gfAncien', 'gfNouveau', 'nrAncien', 'nrNouveau'])
-                  ->orderBy('date', 'desc');
+
+        if ($request->has('type')) {
+            if ($request->type === 'GF') {
+                $query->whereNotNull('id_gf_nouveau');
+            } elseif ($request->type === 'NR') {
+                $query->whereNotNull('id_nr_nouveau');
             }
-        ])->findOrFail($matricule);
-        
-        // Ajout d'infos calculées
-        $agent->est_plafonne = $agent->est_plafonne;
-        $agent->age = $agent->age;
-        $agent->anciennete = $agent->anciennete;
-        
-        return response()->json($agent);
+        }
+
+        $perPage = min((int) $request->get('per_page', 50), 100);
+        $avancements = $query->orderBy('date', 'desc')->paginate($perPage);
+
+        return response()->json($avancements);
     }
-    
-    // Créer un agent
+
+    /**
+     * Détail d’un avancement
+     */
+    public function show($id)
+    {
+        $avancement = Avancement::with(['agent', 'gfAncien', 'gfNouveau', 'nrAncien', 'nrNouveau'])
+            ->findOrFail($id);
+
+        return response()->json($avancement);
+    }
+
+    /**
+     * Liste des avancements d’un agent donné
+     */
+    public function getByAgent($matricule)
+    {
+        $agent = Agent::findOrFail($matricule);
+
+        $avancements = Avancement::where('matricule_agent', $matricule)
+            ->with(['gfAncien', 'gfNouveau', 'nrAncien', 'nrNouveau'])
+            ->orderBy('date', 'desc')
+            ->get();
+
+        return response()->json([
+            'agent' => $agent,
+            'avancements' => $avancements,
+        ]);
+    }
+
+    /**
+     * Créer un nouvel avancement (promotion GF et/ou changement NR)
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'matricule' => 'required|string|max:10|unique:agents',
-            'nom' => 'required|string|max:50',
-            'prenom' => 'required|string|max:50',
-            'sexe' => 'required|in:M,F',
-            'date_naissance' => 'required|date',
-            'lieu_naissance' => 'nullable|string|max:100',
-            'situation_familiale' => 'nullable|string|max:30',
-            'nombre_enfants' => 'nullable|integer|min:0',
-            'date_embauche' => 'required|date',
-            'nationalite' => 'nullable|string|max:30',
-            'id_post' => 'required|exists:postes,id_post',
-            'id_gf_actuel' => 'required|exists:gfs,id_gf',
-            'id_nr_actuel' => 'required|exists:nrs,id_nr',
+            'date' => 'required|date',
+            'matricule_agent' => 'required|exists:agents,matricule',
+            'id_gf_ancien' => 'nullable|exists:gfs,id_gf',
+            'id_gf_nouveau' => 'nullable|exists:gfs,id_gf',
+            'id_nr_ancien' => 'nullable|exists:nrs,id_nr',
+            'id_nr_nouveau' => 'nullable|exists:nrs,id_nr',
         ]);
-        
-        // Vérifier que le GF est dans le tube du poste
-        $poste = Poste::find($validated['id_post']);
-        if (!$poste->estDansTube($validated['id_gf_actuel'])) {
-            return response()->json([
-                'error' => 'Le GF attribué est hors du tube autorisé pour ce poste'
-            ], 422);
+
+        $agent = Agent::findOrFail($validated['matricule_agent']);
+
+        // Vérification : au moins un changement
+        if (empty($validated['id_gf_nouveau']) && empty($validated['id_nr_nouveau'])) {
+            return response()->json(['error' => 'Au moins un changement (GF ou NR) doit être spécifié.'], 422);
         }
-        
-        $agent = Agent::create($validated);
-        
-        // Créer l'avancement initial (embauche)
-        DB::table('avancements')->insert([
-            'date' => $validated['date_embauche'],
-            'matricule_agent' => $validated['matricule'],
-            'id_gf_nouveau' => $validated['id_gf_actuel'],
-            'id_nr_nouveau' => $validated['id_nr_actuel'],
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        
-        return response()->json($agent, 201);
-    }
-    
-    // Modifier un agent
-    public function update(Request $request, $matricule)
-    {
-        $agent = Agent::findOrFail($matricule);
-        
-        $validated = $request->validate([
-            'nom' => 'sometimes|string|max:50',
-            'prenom' => 'sometimes|string|max:50',
-            'sexe' => 'sometimes|in:M,F',
-            'date_naissance' => 'sometimes|date',
-            'lieu_naissance' => 'nullable|string|max:100',
-            'situation_familiale' => 'nullable|string|max:30',
-            'nombre_enfants' => 'nullable|integer|min:0',
-            'date_embauche' => 'sometimes|date',
-            'nationalite' => 'nullable|string|max:30',
-            'id_post' => 'sometimes|exists:postes,id_post',
-            'id_gf_actuel' => 'sometimes|exists:gfs,id_gf',
-            'id_nr_actuel' => 'sometimes|exists:nrs,id_nr',
-        ]);
-        
-        // Vérifier le plafonnement si GF change
-        if (isset($validated['id_gf_actuel']) && isset($validated['id_post'])) {
-            $poste = Poste::find($validated['id_post']);
-            if (!$poste->estDansTube($validated['id_gf_actuel'])) {
-                return response()->json([
-                    'error' => 'Le GF attribué est hors du tube autorisé pour ce poste'
-                ], 422);
+
+        // Règles pour le GF
+        if (!empty($validated['id_gf_nouveau'])) {
+            // Ancien GF obligatoire si nouveau GF fourni
+            if (empty($validated['id_gf_ancien'])) {
+                return response()->json(['error' => 'id_gf_ancien est requis quand id_gf_nouveau est fourni.'], 422);
             }
-        } elseif (isset($validated['id_gf_actuel']) && !isset($validated['id_post'])) {
+
+            $gfAncien = GF::find($validated['id_gf_ancien']);
+            $gfNouveau = GF::find($validated['id_gf_nouveau']);
+
+            // Vérifier progression (ordre strictement supérieur)
+            if ($gfNouveau->ordre <= $gfAncien->ordre) {
+                return response()->json(['error' => 'Le nouveau GF doit être supérieur à l\'ancien.'], 422);
+            }
+
+            // Vérifier que le nouveau GF ne dépasse pas le plafond du poste de l'agent
             $poste = $agent->poste;
-            if (!$poste->estDansTube($validated['id_gf_actuel'])) {
-                return response()->json([
-                    'error' => 'Le GF attribué est hors du tube autorisé pour ce poste'
-                ], 422);
+            $tubeMax = GF::find($poste->tube_max);
+            if ($gfNouveau->ordre > $tubeMax->ordre) {
+                return response()->json(['error' => 'Le nouveau GF dépasse le plafond autorisé pour ce poste (max ' . $tubeMax->id_gf . ').'], 422);
             }
         }
-        
-        $agent->update($validated);
-        
-        return response()->json($agent);
+
+        // Règles pour le NR
+        if (!empty($validated['id_nr_nouveau'])) {
+            if (empty($validated['id_nr_ancien'])) {
+                return response()->json(['error' => 'id_nr_ancien est requis quand id_nr_nouveau est fourni.'], 422);
+            }
+
+            $nrAncien = NR::find($validated['id_nr_ancien']);
+            $nrNouveau = NR::find($validated['id_nr_nouveau']);
+
+            if ($nrNouveau->ordre <= $nrAncien->ordre) {
+                return response()->json(['error' => 'Le nouveau NR doit être supérieur à l\'ancien.'], 422);
+            }
+        }
+
+        // Création de l'avancement
+        $avancement = Avancement::create($validated);
+
+        // Mise à jour des champs actuels de l'agent
+        $updateData = [];
+        if (!empty($validated['id_gf_nouveau'])) {
+            $updateData['id_gf_actuel'] = $validated['id_gf_nouveau'];
+        }
+        if (!empty($validated['id_nr_nouveau'])) {
+            $updateData['id_nr_actuel'] = $validated['id_nr_nouveau'];
+        }
+        if (!empty($updateData)) {
+            $agent->update($updateData);
+        }
+
+        return response()->json($avancement, 201);
     }
-    
-    // Supprimer un agent
-    public function destroy($matricule)
+
+    /**
+     * Mettre à jour un avancement (rare, mais possible pour corriger une date par exemple)
+     */
+    public function update(Request $request, $id)
     {
-        $agent = Agent::findOrFail($matricule);
-        $agent->delete();
-        
+        $avancement = Avancement::findOrFail($id);
+
+        $validated = $request->validate([
+            'date' => 'sometimes|date',
+            'id_gf_ancien' => 'nullable|exists:gfs,id_gf',
+            'id_gf_nouveau' => 'nullable|exists:gfs,id_gf',
+            'id_nr_ancien' => 'nullable|exists:nrs,id_nr',
+            'id_nr_nouveau' => 'nullable|exists:nrs,id_nr',
+        ]);
+
+        // Si on modifie les grades, il faut re-vérifier les règles (similaire au store)
+        // Pour simplifier, on interdit la mise à jour des grades, on ne permet que la date.
+        if (isset($validated['id_gf_nouveau']) || isset($validated['id_nr_nouveau'])) {
+            return response()->json(['error' => 'La modification des grades n\'est pas autorisée. Utilisez la suppression et recréation.'], 422);
+        }
+
+        $avancement->update($validated);
+
+        return response()->json($avancement);
+    }
+
+    /**
+     * Supprimer un avancement
+     * Attention : ne restaure pas automatiquement l'agent à son état antérieur.
+     * Il faudrait recalculer le dernier avancement.
+     */
+    public function destroy($id)
+    {
+        $avancement = Avancement::findOrFail($id);
+        $avancement->delete();
+
+        // Optionnel : recalculer le dernier GF/NR de l'agent
+        // Pour l'instant, on ne le fait pas automatiquement (évite la complexité).
+        // On pourrait ajouter un événement ou une commande pour recalculer.
+
         return response()->json(null, 204);
-    }
-    
-    // Statistiques par service
-    public function statsParService()
-    {
-        $stats = Agent::select(
-                'unites.id_unite',
-                'unites.nom as service',
-                DB::raw('COUNT(*) as total'),
-                DB::raw('SUM(CASE WHEN sexe = \'M\' THEN 1 ELSE 0 END) as hommes'),
-                DB::raw('SUM(CASE WHEN sexe = \'F\' THEN 1 ELSE 0 END) as femmes'),
-                DB::raw('AVG(EXTRACT(YEAR FROM AGE(CURRENT_DATE, date_naissance))) as age_moyen')
-            )
-            ->join('postes', 'agents.id_post', '=', 'postes.id_post')
-            ->join('unites', 'postes.id_unite', '=', 'unites.id_unite')
-            ->groupBy('unites.id_unite', 'unites.nom')
-            ->get();
-        
-        return response()->json($stats);
     }
 }

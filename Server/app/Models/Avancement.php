@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Avancement extends Model
 {
     protected $table = 'avancements';
-    protected $primaryKey = 'id_avancement';
+    protected $primaryKey = 'id';
     
     protected $fillable = [
         'date', 'motif', 'matricule_agent',

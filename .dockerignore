@@ -1,0 +1,30 @@
+# Docker Build files
+Dockerfile
+docker-compose.override.yml
+
+# Environment files (but keep .docker versions)
+Server/.env
+Client/.env
+
+# Dependencies
+Server/vendor
+Client/node_modules
+
+# Storage & Logs
+Server/storage
+Server/bootstrap/cache
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database exports
+*.sql
+*.dump

@@ -11,7 +11,7 @@ class Poste extends Model
     public $incrementing = false;
     protected $keyType = 'string';
     
-    protected $fillable = ['id_post', 'intitule', 'tube_min', 'tube_max', 'id_unite'];
+    protected $fillable = ['id_post', 'intitule', 'effectif_theorique', 'tube_min', 'tube_max', 'id_unite'];
     
     public $timestamps = true;
     

@@ -9,6 +9,7 @@ use App\Models\GF;
 use App\Models\NR;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 
 class AgentController extends Controller
@@ -33,11 +34,21 @@ class AgentController extends Controller
             $query->where('sexe', $request->sexe);
         }
         
+        if ($request->has('lieu')) {
+            $lieu = trim((string) $request->lieu);
+            if ($lieu !== '') {
+                $lieu = mb_strtolower($lieu);
+                $query->whereRaw('LOWER(lieu) LIKE ?', ['%' . $lieu . '%']);
+            }
+        }
+
         if ($request->has('search')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('nom', 'like', '%' . $request->search . '%')
-                  ->orWhere('prenom', 'like', '%' . $request->search . '%')
-                  ->orWhere('matricule', 'like', '%' . $request->search . '%');
+            $search = mb_strtolower($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->whereRaw('LOWER(nom) LIKE ?', ['%' . $search . '%'])
+                  ->orWhereRaw('LOWER(prenom) LIKE ?', ['%' . $search . '%'])
+                  ->orWhereRaw('LOWER(matricule) LIKE ?', ['%' . $search . '%'])
+                  ->orWhereRaw('LOWER(lieu) LIKE ?', ['%' . $search . '%']);
             });
         }
         
@@ -51,7 +62,8 @@ class AgentController extends Controller
             )');
         }
         
-        $agents = $query->orderBy('nom')->paginate(20);
+        $perPage = min((int) $request->get('per_page', 20), 100);
+        $agents = $query->orderBy('nom')->paginate($perPage);
         
         // Ajout des infos calculées pour la liste
         foreach ($agents as $agent) {
@@ -174,6 +186,12 @@ class AgentController extends Controller
         $agent = Agent::findOrFail($matricule);
         
         $validated = $request->validate([
+            'matricule' => [
+                'sometimes',
+                'string',
+                'max:10',
+                Rule::unique('agents', 'matricule')->ignore($agent->matricule, 'matricule'),
+            ],
             'titre' => 'nullable|string|max:10',
             'nom' => 'sometimes|string|max:50',
             'prenom' => 'sometimes|string|max:50',
@@ -210,10 +228,11 @@ class AgentController extends Controller
         ]);
         
         // Vérifier le plafonnement si GF change
-        if (isset($validated['id_gf_actuel'])) {
+        if (isset($validated['id_gf_actuel']) || isset($validated['id_post'])) {
             $posteId = $validated['id_post'] ?? $agent->id_post;
+            $gfId = $validated['id_gf_actuel'] ?? $agent->id_gf_actuel;
             $poste = Poste::find($posteId);
-            if (!$poste->estDansTube($validated['id_gf_actuel'])) {
+            if (!$poste->estDansTube($gfId)) {
                 return response()->json([
                     'error' => 'Le GF attribué est hors du tube autorisé pour ce poste'
                 ], 422);

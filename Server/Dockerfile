@@ -1,20 +1,20 @@
 # Stage 1: Builder PHP avec Composer
-FROM php:8.4-fpm-alpine AS builder
+FROM php:8.4-fpm-bookworm AS builder
 
 WORKDIR /app
 
 # Installer les dépendances système + extensions PHP nécessaires
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     curl \
     git \
     postgresql-client \
-    postgresql-dev \
-    oniguruma-dev \
-    $PHPIZE_DEPS \
+    libpq-dev \
+    libonig-dev \
     && docker-php-ext-install -j$(nproc) \
     pdo_pgsql \
     bcmath \
-    mbstring
+    mbstring \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Installer Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -32,17 +32,18 @@ RUN composer install \
 # ============================================================
 # Stage 2: Image de production
 # ============================================================
-FROM php:8.4-fpm-alpine
+FROM php:8.4-fpm-bookworm
 
 WORKDIR /app
 
 # Installer uniquement les dépendances runtime
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     nginx \
     curl \
     postgresql-client \
-    oniguruma \
-    supervisor
+    libonig5 \
+    supervisor \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copier les extensions PHP compilées
 COPY --from=builder /usr/local/lib/php/extensions /usr/local/lib/php/extensions

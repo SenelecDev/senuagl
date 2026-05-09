@@ -62,7 +62,11 @@ COPY docker/default.conf /etc/nginx/conf.d/default.conf
 # Copier la configuration Supervisor
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Créer les dossiers nécessaires et définir les permissions
+# Copier et préparer le script d'initialisation
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Créer les dossiers nécessaires et définir les permissions initiales
 RUN mkdir -p \
     /var/log/supervisor \
     /app/bootstrap/cache \
@@ -75,11 +79,11 @@ RUN mkdir -p \
 RUN chmod +x /app/artisan
 
 # Healthcheck
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost/api/test || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost/api/health || exit 1
 
 # Exposer le port HTTP
 EXPOSE 80
 
-# Lancer Supervisor
-CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Utiliser le script d'initialisation
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

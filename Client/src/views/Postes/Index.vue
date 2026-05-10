@@ -409,7 +409,7 @@ const handleSearchInput = (value) => {
 
 const getGfLabel = (gf) => {
   if (!gf) return 'N/A'
-  if (typeof gf === 'object') return gf.ordre || gf.id_gf || 'N/A'
+  if (typeof gf === 'object') return gf.id_gf || gf.ordre || 'N/A'
   return gf
 }
 

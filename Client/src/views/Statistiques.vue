@@ -66,7 +66,7 @@
         <v-card class="rounded-lg chart-card" elevation="2">
           <v-card-title class="chart-title">
             <div>
-              <h2>Répartition H/F</h2>
+              <h2>Répartition H/F</h2>x
               <p>Structure globale de l'effectif.</p>
             </div>
           </v-card-title>
@@ -150,40 +150,6 @@
           </v-data-table>
         </v-card>
 
-        <v-card class="rounded-lg" elevation="2">
-          <v-card-title class="table-title">
-            <div>
-              <h2>Anomalies de plafonnement</h2>
-              <p>Agents dont le GF sort du tube du poste.</p>
-            </div>
-            <v-chip color="error" variant="tonal" size="small">
-              {{ plafonnementAnomalies.length }}
-            </v-chip>
-          </v-card-title>
-          <v-data-table
-            :headers="anomalyHeaders"
-            :items="plafonnementAnomalies"
-            :items-per-page="5"
-            density="comfortable"
-            no-data-text="Aucune anomalie détectée"
-          >
-            <template #item.nom_complet="{ item }">
-              {{ item.prenom }} {{ item.nom }}
-            </template>
-            <template #item.gf="{ item }">
-              {{ item.gf_actuel?.ordre || 'N/A' }}
-            </template>
-            <template #item.tube="{ item }">
-              {{ item.tube_min || 'N/A' }} - {{ item.tube_max || 'N/A' }}
-            </template>
-            <template #item.type_anomalie="{ item }">
-              <v-chip :color="item.type_anomalie === 'DEPASSE_PLAFOND' ? 'error' : 'warning'" size="small" variant="tonal">
-                {{ item.type_anomalie === 'DEPASSE_PLAFOND' ? 'Dépasse plafond' : 'Sous plancher' }}
-              </v-chip>
-            </template>
-          </v-data-table>
-        </v-card>
-
         <v-card class="rounded-lg service-table" elevation="2">
           <v-card-title class="table-title">
             <div>
@@ -258,7 +224,6 @@ const {
   repartitionHF,
   repartitionHFParService,
   departsRetraite,
-  plafonnementAnomalies,
   agentsBloques,
   loading,
   error
@@ -280,14 +245,6 @@ const retirementHeaders = [
   { title: 'Agent', key: 'nom_complet' },
   { title: 'Poste', key: 'poste' },
   { title: 'Age', key: 'age' }
-]
-
-const anomalyHeaders = [
-  { title: 'Matricule', key: 'matricule' },
-  { title: 'Agent', key: 'nom_complet' },
-  { title: 'GF', key: 'gf' },
-  { title: 'Tube', key: 'tube' },
-  { title: 'Anomalie', key: 'type_anomalie' }
 ]
 
 const serviceHeaders = [
@@ -546,7 +503,7 @@ onUnmounted(() => {
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1rem;
 }
 

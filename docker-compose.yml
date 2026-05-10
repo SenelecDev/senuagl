@@ -1,103 +1,75 @@
 services:
-  # PostgreSQL Database
-  database:
+  db:
     image: postgres:16-alpine
-    container_name: uagl-postgres
     restart: unless-stopped
+    networks:
+      uagl_network:
+        aliases:
+          - database
     environment:
       POSTGRES_DB: ${DB_DATABASE:-uagl_db}
       POSTGRES_USER: ${DB_USERNAME:-uagl_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-user_password_123}
-      # Improve startup time on Windows
-      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      # Simple TCP connection check (more reliable than pg_isready on Alpine)
-      test: ["CMD", "pg_isready", "-U", "uagl_user", "-h", "localhost", "-p", "5432"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-uagl_user} -d ${DB_DATABASE:-uagl_db}"]
       interval: 5s
-      timeout: 10s
-      retries: 10
-      start_period: 30s
-    networks:
-      - uagl-network
+      timeout: 5s
+      retries: 20
 
-  # Laravel Backend
   server:
     build:
       context: ./Server
       dockerfile: Dockerfile
-    container_name: uagl-server
     restart: unless-stopped
-    working_dir: /app
+    networks:
+      - uagl_network
     environment:
-      APP_NAME: UAGL
       APP_ENV: ${APP_ENV:-local}
-      APP_KEY: ${APP_KEY:-}
       APP_DEBUG: ${APP_DEBUG:-true}
       APP_URL: http://localhost:8000
       DB_CONNECTION: pgsql
-      DB_HOST: database
+      DB_HOST: db
       DB_PORT: 5432
       DB_DATABASE: ${DB_DATABASE:-uagl_db}
       DB_USERNAME: ${DB_USERNAME:-uagl_user}
       DB_PASSWORD: ${DB_PASSWORD:-user_password_123}
-      QUEUE_CONNECTION: sync
-      CACHE_DRIVER: file
-      SESSION_DRIVER: file
-    ports:
-      - "8000:80"
     volumes:
       - ./Server:/app
-      - /app/vendor
-      - ./Server/storage:/app/storage
-      - ./Server/bootstrap/cache:/app/bootstrap/cache
+      - server_vendor:/app/vendor
+    ports:
+      - "8000:8000"
     depends_on:
-      database:
+      db:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost/api/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-    networks:
-      - uagl-network
+    command: php artisan serve --host=0.0.0.0 --port=8000
 
-  # Vue.js Frontend
   client:
     build:
       context: ./Client
       dockerfile: Dockerfile
-    container_name: uagl-client
     restart: unless-stopped
-    ports:
-      - "5173:5173"
+    networks:
+      - uagl_network
     environment:
       VITE_API_URL: http://localhost:8000/api
     volumes:
       - ./Client:/app
-      - /app/node_modules
+      - client_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
     depends_on:
       - server
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5173/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    networks:
-      - uagl-network
+    command: npm run dev -- --host 0.0.0.0 --port 5173
 
 volumes:
   postgres_data:
-    driver: local
-  vendor_data:
-    driver: local
+  server_vendor:
+  client_node_modules:
 
 networks:
-  uagl-network:
+  uagl_network:
     driver: bridge

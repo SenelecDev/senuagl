@@ -1,123 +1,163 @@
-.PHONY: help up down restart logs build init migrate seed test clean flush
+# Docker Compose v2 : `docker compose`. Ancienne CLI : make DC="docker-compose" …
+DC ?= docker compose
+
+.PHONY: help up up-build down restart build logs logs-server logs-client logs-db \
+	init migrate migrate-fresh seed migrate-fresh-seed artisan npm db-shell db-root-shell \
+	clean clean-volumes flush status test tinker
 
 help:
-	@echo "╔════════════════════════════════════════════════╗"
-	@echo "║   UAGL Project - Docker Commands               ║"
-	@echo "╚════════════════════════════════════════════════╝"
+	@echo "════════════════════════════════════════════════"
+	@echo "  UAGL — commandes Docker (Makefile)"
+	@echo "════════════════════════════════════════════════"
 	@echo ""
-	@echo "Available commands:"
+	@echo "  make up              Démarrer les services (images déjà buildées)"
+	@echo "  make up-build        Démarrer avec rebuild des images"
+	@echo "  make down            Arrêter les services"
+	@echo "  make restart         down puis up"
+	@echo "  make build           docker compose build --no-cache"
 	@echo ""
-	@echo "  make up                  Start all services"
-	@echo "  make down                Stop all services"
-	@echo "  make restart             Restart all services"
-	@echo "  make build               Build Docker images"
+	@echo "  make logs            Tous les logs (-f)"
+	@echo "  make logs-server     Logs backend (Laravel)"
+	@echo "  make logs-client     Logs frontend (Vite)"
+	@echo "  make logs-db         Logs PostgreSQL"
 	@echo ""
-	@echo "  make logs                Show all logs"
-	@echo "  make logs-server         Show backend logs"
-	@echo "  make logs-client         Show frontend logs"
-	@echo "  make logs-database       Show database logs"
+	@echo "  make init            Première install : deps, .env, clé, migrations+seed, npm"
+	@echo "  make migrate         php artisan migrate"
+	@echo "  make migrate-fresh   migrate:fresh (destructif)"
+	@echo "  make seed            db:seed"
 	@echo ""
-	@echo "  make init                Complete initialization (first run)"
-	@echo "  make migrate             Run database migrations"
-	@echo "  make seed                Seed database with test data"
+	@echo "  make artisan CMD=...   Ex. make artisan CMD=\"route:list\""
+	@echo "  make npm CMD=...       Ex. make npm CMD=\"install\""
+	@echo "  make tinker            php artisan tinker (interactif)"
 	@echo ""
-	@echo "  make artisan CMD=...     Run artisan command (e.g., make artisan CMD=tinker)"
-	@echo "  make npm CMD=...         Run npm command (e.g., make npm CMD='install package'"
-	@echo "  make mysql               Access MySQL CLI"
+	@echo "  make db-shell        psql (user/db par défaut du projet)"
+	@echo "  make db-root-shell   psql en superuser postgres (si besoin)"
 	@echo ""
-	@echo "  make clean               Remove all containers"
-	@echo "  make clean-volumes       Remove all data (⚠️  destructive)"
+	@echo "  make clean           down --remove-orphans"
+	@echo "  make clean-volumes   down + suppression des volumes (données effacées)"
+	@echo "  make flush           clean-volumes puis up-build puis init applicatif"
+	@echo ""
+	@echo "  make status          État des conteneurs + test API /api/test"
+	@echo "  make test            php artisan test dans le conteneur server"
 	@echo ""
 
-# Core Commands
+# Par défaut (aligné avec docker-compose : uagl_user / uagl_db)
+DB_USERNAME ?= uagl_user
+DB_DATABASE ?= uagl_db
+
+# --- Cœur ---
+
 up:
-	docker-compose up -d
-	@echo "✅ Services started!"
-	@echo "   Frontend: http://localhost:5173"
-	@echo "   Backend:  http://localhost:8000"
+	$(DC) up -d
+	@echo "Services démarrés."
+	@echo "  Frontend : http://localhost:5173"
+	@echo "  Backend  : http://localhost:8000"
+
+up-build:
+	$(DC) up -d --build
+	@echo "Services démarrés (images rebuild)."
+	@echo "  Frontend : http://localhost:5173"
+	@echo "  Backend  : http://localhost:8000"
 
 down:
-	docker-compose down
-	@echo "✅ Services stopped!"
+	$(DC) down
+	@echo "Services arrêtés."
 
 restart: down up
-	@echo "✅ Services restarted!"
 
 build:
-	docker-compose build --no-cache
-	@echo "✅ Images built!"
+	$(DC) build --no-cache
+	@echo "Images buildées."
 
-# Logs
+# --- Logs ---
+
 logs:
-	docker-compose logs -f
+	$(DC) logs -f
 
 logs-server:
-	docker-compose logs -f server
+	$(DC) logs -f server
 
 logs-client:
-	docker-compose logs -f client
+	$(DC) logs -f client
 
-logs-database:
-	docker-compose logs -f database
+logs-db:
+	$(DC) logs -f db
 
-# Database
-init:
-	@echo "🚀 Initializing UAGL Project..."
-	@cp Server/.env.docker Server/.env 2>/dev/null || true
-	@cp Client/.env.docker Client/.env 2>/dev/null || true
-	docker-compose up -d
-	@echo "⏳ Waiting for services to be ready..."
-	@sleep 5
-	docker-compose exec -T server php artisan key:generate
-	docker-compose exec -T server php artisan migrate --force
-	@echo "✅ Initialization complete!"
+# --- Initialisation & base ---
+
+# Premier lancement complet (après clone)
+init: up-build
+	@echo "Attente du démarrage (db + server)…"
+	@sleep 12
+	$(DC) exec -T server composer install --no-interaction --prefer-dist
+	$(DC) exec -T server sh -c 'test -f .env || cp .env.example .env'
+	$(DC) exec -T server php artisan key:generate --force
+	$(DC) exec -T server php artisan migrate --seed --force
+	$(DC) exec -T client npm install
+	@echo "Initialisation terminée. Compte admin : voir README.md (section Connexion)."
 
 migrate:
-	docker-compose exec server php artisan migrate
+	$(DC) exec server php artisan migrate
 
 migrate-fresh:
-	docker-compose exec server php artisan migrate:fresh
+	$(DC) exec server php artisan migrate:fresh
 
 seed:
-	docker-compose exec server php artisan db:seed
+	$(DC) exec server php artisan db:seed
 
 migrate-fresh-seed: migrate-fresh seed
-	@echo "✅ Database reset and seeded!"
+	@echo "Base recréée et données de seed importées."
 
-# Laravel Commands
+# --- Wrappers ---
+
 artisan:
-	docker-compose exec server php artisan $(CMD)
+	@test -n "$(CMD)" || (echo 'Usage: make artisan CMD="ma:commande"' && exit 1)
+	$(DC) exec server php artisan $(CMD)
 
 tinker:
-	docker-compose exec server php artisan tinker
+	$(DC) exec server php artisan tinker
 
-# Frontend Commands
 npm:
-	docker-compose exec client npm $(CMD)
+	@test -n "$(CMD)" || (echo 'Usage: make npm CMD="install"' && exit 1)
+	$(DC) exec client npm $(CMD)
 
-# Database Access
-mysql:
-	docker-compose exec database psql -U uagl_user -d uagl_db
+# PostgreSQL (service compose : db)
+db-shell:
+	$(DC) exec db psql -U $(DB_USERNAME) -d $(DB_DATABASE)
 
-mysql-root:
-	docker-compose exec database psql -U postgres
+db-root-shell:
+	$(DC) exec db psql -U postgres
 
-# Cleanup
+# --- Nettoyage ---
+
 clean:
-	docker-compose down --remove-orphans
-	@echo "✅ Containers removed!"
+	$(DC) down --remove-orphans
+	@echo "Conteneurs supprimés."
 
-clean-volumes: clean
-	docker volume rm uagl_mysql_data 2>/dev/null || true
-	@echo "✅ All data removed!"
+# Supprime aussi les volumes déclarés dans compose (postgres, vendor, node_modules anonymisés dans le projet)
+clean-volumes:
+	$(DC) down -v --remove-orphans
+	@echo "Conteneurs et volumes du projet supprimés."
 
-flush: clean-volumes up migrate seed
-	@echo "✅ Complete reset done!"
+# Reset total : données + réinstall
+flush: clean-volumes up-build
+	@echo "Attente du démarrage…"
+	@sleep 12
+	$(DC) exec -T server composer install --no-interaction --prefer-dist
+	$(DC) exec -T server sh -c 'test -f .env || cp .env.example .env'
+	$(DC) exec -T server php artisan key:generate --force
+	$(DC) exec -T server php artisan migrate --seed --force
+	$(DC) exec -T client npm install
+	@echo "Reset complet terminé."
 
-# Health check
+# --- Utilitaires ---
+
 status:
-	@echo "📊 Service Status:"
-	@docker-compose ps
+	@echo "État des services :"
+	@$(DC) ps
 	@echo ""
-	@echo "🔗 API Test:"
-	@curl -s http://localhost:8000/api/test | jq . 2>/dev/null || echo "API not responding"
+	@echo "Test API GET /api/test :"
+	@curl -sS http://localhost:8000/api/test || echo "(API non joignable)"
+
+test:
+	$(DC) exec server php artisan test

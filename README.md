@@ -144,4 +144,4 @@ Puis relance `make init` ou `make flush`.
 
 ## Licence
 
-Selon les fichiers `composer.json` / `package.json` et la politique de ton organisation.
+

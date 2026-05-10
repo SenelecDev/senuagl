@@ -2,7 +2,7 @@
 DC ?= docker compose
 
 .PHONY: help up up-build down restart build logs logs-server logs-client logs-db \
-	init migrate migrate-fresh seed migrate-fresh-seed artisan npm db-shell db-root-shell \
+	wait-backend init migrate migrate-fresh seed migrate-fresh-seed artisan npm db-shell db-root-shell \
 	clean clean-volumes flush status test tinker
 
 help:
@@ -21,7 +21,8 @@ help:
 	@echo "  make logs-client     Logs frontend (Vite)"
 	@echo "  make logs-db         Logs PostgreSQL"
 	@echo ""
-	@echo "  make init            Première install : deps, .env, clé, migrations+seed, npm"
+	@echo "  make wait-backend    Attend que l API réponde (après composer dans le conteneur server)"
+	@echo "  make init            .env, clé, migrations+seed, npm (Composer au démarrage du serveur)"
 	@echo "  make migrate         php artisan migrate"
 	@echo "  make migrate-fresh   migrate:fresh (destructif)"
 	@echo "  make seed            db:seed"
@@ -85,11 +86,19 @@ logs-db:
 
 # --- Initialisation & base ---
 
+# Attend que l’entrypoint du serveur ait fini composer install et lancé artisan serve
+wait-backend:
+	@echo "Attente du backend (HTTP 200 sur /api/test). Premier lancement : composer peut prendre plusieurs minutes…"
+	@n=1; max=150; \
+	while [ $$n -le $$max ]; do \
+	  if curl -sf http://127.0.0.1:8000/api/test >/dev/null 2>&1; then echo "Backend prêt."; exit 0; fi; \
+	  sleep 3; \
+	  n=$$((n + 1)); \
+	done; \
+	echo "Temps maximal dépassé. Voir : docker compose logs server"; exit 1
+
 # Premier lancement complet (après clone)
-init: up-build
-	@echo "Attente du démarrage (db + server)…"
-	@sleep 12
-	$(DC) exec -T server composer install --no-interaction --prefer-dist
+init: up-build wait-backend
 	$(DC) exec -T server sh -c 'test -f .env || cp .env.example .env'
 	$(DC) exec -T server php artisan key:generate --force
 	$(DC) exec -T server php artisan migrate --seed --force
@@ -140,10 +149,7 @@ clean-volumes:
 	@echo "Conteneurs et volumes du projet supprimés."
 
 # Reset total : données + réinstall
-flush: clean-volumes up-build
-	@echo "Attente du démarrage…"
-	@sleep 12
-	$(DC) exec -T server composer install --no-interaction --prefer-dist
+flush: clean-volumes up-build wait-backend
 	$(DC) exec -T server sh -c 'test -f .env || cp .env.example .env'
 	$(DC) exec -T server php artisan key:generate --force
 	$(DC) exec -T server php artisan migrate --seed --force

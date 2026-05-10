@@ -27,7 +27,11 @@ make DC="docker-compose" up
 docker compose up -d --build
 ```
 
-Puis **initialisation une seule fois** (dépendances PHP, `.env`, clé d’application, migrations + seed, dépendances npm) :
+Le conteneur **server** installe automatiquement les dépendances Composer dans le volume `server_vendor` au démarrage (indispensable après un clone, car **`vendor/` n’est pas versionné**). Le **premier** `docker compose build` peut prendre plusieurs minutes (compilation des extensions PHP `pdo_pgsql`, etc.) selon la machine et le réseau.
+
+Le premier `composer install` **dans le conteneur** peut aussi prendre longtemps (téléchargement Packagist) : le port 8000 ne répond que **après**. Suivre : `docker compose logs -f server`. Pour le Makefile : `make wait-backend` ou `make init` (qui attend déjà l’API, jusqu’à ~7–8 minutes par défaut).
+
+Ensuite **initialisation une seule fois** (`.env`, clé d’application, migrations + seed, dépendances npm côté client) :
 
 ```bash
 make init
@@ -36,7 +40,6 @@ make init
 Ou à la main :
 
 ```bash
-docker compose exec server composer install
 docker compose exec server sh -c 'test -f .env || cp .env.example .env'
 docker compose exec server php artisan key:generate
 docker compose exec server php artisan migrate --seed
@@ -68,7 +71,8 @@ Résumé des cibles utiles :
 | `make logs-db`       | Logs Postgres (service `db`) |
 | `make db-shell`      | Shell `psql` (utilisateur / base par défaut du projet) |
 | `make clean-volumes` | Supprime conteneurs **et** volumes (données effacées) |
-| `make flush`         | Comme un reset : volumes + rebuild + `init` applicatif |
+| `make wait-backend`  | Attend que `GET /api/test` réponde (composer au 1ᵉʳ démarrage) |
+| `make flush`         | Comme un reset : volumes + rebuild + réinit applicatif |
 | `make artisan CMD="…"` | Exécute `php artisan …` dans `server` |
 | `make npm CMD="…"`   | Exécute `npm …` dans `client` |
 
@@ -118,6 +122,9 @@ Le fichier `Server/database/seeders/DatabaseSeeder.php` :
 ---
 
 ## Dépannage rapide
+
+- **Après clone sur une autre machine, le conteneur `server` « ne démarre pas » ou reste très longtemps en Starting / Restarting**  
+  Ancien comportement probable : **`vendor/` absent** + volume `server_vendor` vide ⇒ `php artisan serve` tombait tout de suite, et avec `restart: unless-stopped` Docker **bouclait**. Vérifie les logs avec `docker compose logs -f server`. Avec la version actuelle du projet, **`composer install` est exécuté automatiquement** au démarrage du backend ; après mise à jour du dépôt, refais au besoin `docker compose up -d --build`.
 
 - **Impossible de joindre Postgres (`could not translate host name "database"`…)**  
   Mets `DB_HOST=db` dans `Server/.env` ou utilise l’alias `database` (déjà prévu dans Compose), puis `config:clear` si besoin.

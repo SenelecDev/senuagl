@@ -66,7 +66,7 @@
         <v-card class="rounded-lg chart-card" elevation="2">
           <v-card-title class="chart-title">
             <div>
-              <h2>Répartition H/F</h2>x
+              <h2>Répartition H/F</h2>
               <p>Structure globale de l'effectif.</p>
             </div>
           </v-card-title>

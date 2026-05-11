@@ -17,6 +17,8 @@ export const useStatistiqueStore = defineStore('statistique', {
         departsRetraite: {
             comptage: {
                 moins_1_an: 0,
+                entre_1_et_2_ans: 0,
+                entre_2_et_3_ans: 0,
                 entre_1_et_3_ans: 0,
                 entre_3_et_5_ans: 0,
                 plus_5_ans: 0,
@@ -24,6 +26,8 @@ export const useStatistiqueStore = defineStore('statistique', {
             },
             liste: {
                 moins_1_an: [],
+                entre_1_et_2_ans: [],
+                entre_2_et_3_ans: [],
                 entre_1_et_3_ans: [],
                 entre_3_et_5_ans: [],
                 plus_5_ans: []

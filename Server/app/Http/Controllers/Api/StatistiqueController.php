@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\Poste;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class StatistiqueController extends Controller
@@ -94,29 +95,35 @@ class StatistiqueController extends Controller
             ->with('poste:id_post,intitule')
             ->get();
         
-        $aujourdhui = now();
+        $aujourdhui = now()->startOfDay();
         
         $resultat = [
             'moins_1_an' => [],
+            'entre_1_et_2_ans' => [],
+            'entre_2_et_3_ans' => [],
             'entre_1_et_3_ans' => [],
             'entre_3_et_5_ans' => [],
             'plus_5_ans' => []
         ];
         
         foreach ($agents as $agent) {
-            $age = $agent->age;
-            $ageDans1An = $age + 1;
-            $ageDans3Ans = $age + 3;
-            $ageDans5Ans = $age + 5;
+            $anneeRetraite = Carbon::parse($agent->date_naissance)->addYears(60)->year;
+            $dateRetraite = Carbon::create($anneeRetraite, 12, 31)->startOfDay();
+            $moisAvantRetraite = $aujourdhui->diffInMonths($dateRetraite, false);
+
+            $agent->age = $agent->age;
+            $agent->date_retraite = $dateRetraite->toDateString();
+            $agent->mois_avant_retraite = max(0, (int) ceil($moisAvantRetraite));
             
-            if ($age >= 60) {
-                // Déjà en âge de partir
+            if ($moisAvantRetraite <= 12) {
                 $resultat['moins_1_an'][] = $agent;
-            } elseif ($ageDans1An >= 60) {
-                $resultat['moins_1_an'][] = $agent;
-            } elseif ($ageDans3Ans >= 60) {
+            } elseif ($moisAvantRetraite <= 24) {
+                $resultat['entre_1_et_2_ans'][] = $agent;
                 $resultat['entre_1_et_3_ans'][] = $agent;
-            } elseif ($ageDans5Ans >= 60) {
+            } elseif ($moisAvantRetraite <= 36) {
+                $resultat['entre_2_et_3_ans'][] = $agent;
+                $resultat['entre_1_et_3_ans'][] = $agent;
+            } elseif ($moisAvantRetraite <= 60) {
                 $resultat['entre_3_et_5_ans'][] = $agent;
             } else {
                 $resultat['plus_5_ans'][] = $agent;
@@ -126,6 +133,8 @@ class StatistiqueController extends Controller
         // Compter par catégorie
         $comptage = [
             'moins_1_an' => count($resultat['moins_1_an']),
+            'entre_1_et_2_ans' => count($resultat['entre_1_et_2_ans']),
+            'entre_2_et_3_ans' => count($resultat['entre_2_et_3_ans']),
             'entre_1_et_3_ans' => count($resultat['entre_1_et_3_ans']),
             'entre_3_et_5_ans' => count($resultat['entre_3_et_5_ans']),
             'plus_5_ans' => count($resultat['plus_5_ans']),

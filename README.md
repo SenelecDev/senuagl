@@ -100,9 +100,11 @@ Dans `Server/.env`, pour coller à Compose :
 - `DB_HOST=db`  
   (ou `database` grâce à l’alias réseau)
 - `DB_PORT=5432`
-- `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` alignés sur ce que tu as mis dans `docker-compose.yml` / variables d’environnement.
+- `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` doivent correspondre à ceux du service `db`.
 
-Compose injecte déjà `DB_HOST=db` pour le service `server` ; si tu as mis un **config cache** (`php artisan config:cache`) avec d’anciennes valeurs :
+Le service `server` charge explicitement `Server/.env` via `env_file` dans `docker-compose.yml`. Donc c’est bien ce fichier qui fait foi (plus d’override silencieux des variables DB par Compose).
+
+Si tu as mis un **config cache** (`php artisan config:cache`) avec d’anciennes valeurs :
 
 ```bash
 docker compose exec server php artisan config:clear
@@ -139,13 +141,6 @@ make clean-volumes
 ```
 
 Puis relance `make init` ou `make flush`.
-
----
-
-## Dossiers applicatifs
-
-- **Backend Laravel :** voir `Server/README.md`
-- **Frontend Vue / Vite :** voir `Client/README.md`
 
 ---
 

@@ -27,16 +27,8 @@ services:
     restart: unless-stopped
     networks:
       - uagl_network
-    environment:
-      APP_ENV: ${APP_ENV:-local}
-      APP_DEBUG: ${APP_DEBUG:-true}
-      APP_URL: http://localhost:8000
-      DB_CONNECTION: pgsql
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_DATABASE: ${DB_DATABASE:-uagl_db}
-      DB_USERNAME: ${DB_USERNAME:-uagl_user}
-      DB_PASSWORD: ${DB_PASSWORD:-user_password_123}
+    env_file:
+      - ./Server/.env
     volumes:
       - ./Server:/app
       - server_vendor:/app/vendor

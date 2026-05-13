@@ -39,7 +39,8 @@ const title = computed(() => {
     '/postes': 'Gestion des postes',
     '/postes-vacants': 'Postes vacants',
     '/statistiques': 'Statistiques',
-    '/avancements': 'Historique des avancements'
+    '/avancements': 'Historique des avancements',
+    '/budget': 'Suivi Budgeétaire'
   }
   return titles[route.path] || 'UAGL - DSI'
 })

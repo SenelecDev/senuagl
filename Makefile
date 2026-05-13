@@ -42,9 +42,6 @@ help:
 	@echo "  make test            php artisan test dans le conteneur server"
 	@echo ""
 
-# Par défaut (aligné avec docker-compose : uagl_user / uagl_db)
-DB_USERNAME ?= uagl_user
-DB_DATABASE ?= uagl_db
 
 # --- Cœur ---
 

@@ -6,6 +6,7 @@ import PostesIndex from '../views/Postes/Index.vue'
 import PostesVacants from '../views/Postes/Vacants.vue'
 import Statistiques from '../views/Statistiques.vue'
 import Avancements from '../views/Avancements.vue'
+import Budget from '../views/Budget/Index.vue'
 import Login from '../views/Login.vue'
 import { useAuthStore } from '../stores/auth'
 
@@ -56,6 +57,12 @@ const routes = [
         path: '/avancements',
         name: 'Avancements',
         component: Avancements,
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/budget',
+        name: 'Budget',
+        component: Budget,
         meta: { requiresAuth: true }
     },
     {

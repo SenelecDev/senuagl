@@ -1,13 +1,17 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\StatistiqueController;
-use App\Http\Controllers\Api\AvancementController;
 use App\Http\Controllers\Api\AgentController;
-use App\Http\Controllers\Api\UniteController;
-use App\Http\Controllers\Api\PosteController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AvancementController;
+use App\Http\Controllers\Api\BudgetController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\InvestissementController;
+use App\Http\Controllers\Api\PosteController;
+use App\Http\Controllers\Api\StatistiqueController;
+use App\Http\Controllers\Api\UniteController;
+use App\Models\GF;
+use App\Models\NR;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/test', function () {
     return response()->json(['message' => 'API OK']);
@@ -38,12 +42,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // GF et NR (lookup tables)
     Route::get('gfs', function () {
-        $gfs = \App\Models\GF::all();
+        $gfs = GF::all();
+
         return response()->json($gfs);
     });
 
     Route::get('nrs', function () {
-        $nrs = \App\Models\NR::all();
+        $nrs = NR::all();
+
         return response()->json($nrs);
     });
 
@@ -60,5 +66,18 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Dashboard
     Route::get('/dashboard/kpi', [DashboardController::class, 'kpi']);
+
+    // Budget & investissements
+    Route::get('budget/referentiels', [BudgetController::class, 'referentiels']);
+    Route::get('budget', [BudgetController::class, 'index']);
+    Route::post('budget', [BudgetController::class, 'store']);
+    Route::put('budget/{type}/{id}', [BudgetController::class, 'update'])
+        ->whereIn('type', ['prevision', 'realisation']);
+    Route::delete('budget/{type}/{id}', [BudgetController::class, 'destroy'])
+        ->whereIn('type', ['prevision', 'realisation']);
+
+    Route::get('investissements', [InvestissementController::class, 'index']);
+    Route::post('investissements', [InvestissementController::class, 'store']);
+    Route::post('investissements/calculate', [InvestissementController::class, 'calculate']);
 
 });

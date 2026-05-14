@@ -122,13 +122,15 @@
 
     <!-- Modal Ajouter/Modifier -->
     <UserModal
-  v-model="dialog"
-  :user="editedUser"
-  :roles="roles"
-  :departments="departments"
-  :managers="potentialManagers"
-  @submit="saveUser"
-/>
+      v-model="dialog"
+      :user="editedUser"
+      :roles="roles"
+      :departments="departments"
+      :managers="potentialManagers"
+      :roles-loading="usersStore.rolesLoading"
+      :departments-loading="usersStore.departmentsLoading"
+      @submit="saveUser"
+    />
 
     <!-- Confirmation suppression -->
     <v-dialog v-model="dialogDelete" max-width="500px">
@@ -235,7 +237,16 @@ const getRoleColor = (role) => {
 const formatDate = (d) => d ? new Date(d).toLocaleDateString("fr-FR") : "N/A";
 const clearError = () => { usersStore.error = null; };
 
-const openDialog = (user) => {
+const openDialog = async (user) => {
+  try {
+    await Promise.all([
+      usersStore.fetchRoles(true),
+      usersStore.fetchDepartments(true),
+    ]);
+  } catch {
+    /* les erreurs sont dans usersStore.error */
+  }
+
   if (user) {
     editedIndex.value = users.value.findIndex((u) => u.id === user.id);
     editedUser.value = {

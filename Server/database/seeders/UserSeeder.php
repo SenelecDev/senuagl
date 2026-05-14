@@ -61,6 +61,9 @@ class UserSeeder extends Seeder
 
     private function createUsers(): void
     {
+        // Les e-mails ci-dessous sont des exemples : en production, mettez les vraies adresses
+        // (ou modifiez chaque compte dans l’admin). Les mails système utilisent le champ `email` en base.
+
         // Récupérer les rôles et départements
         $adminRole = Role::where('nom', 'Admin')->first();
         $superieurRole = Role::where('nom', 'Superieur')->first();
@@ -80,7 +83,7 @@ class UserSeeder extends Seeder
                 'name' => 'Admin',
                 'first_name' => 'Super',
                 'matricule' => 'ADM001',
-                'email' => 'admin@mail.com',
+                'email' => 'insasarr1@gmail.com',
                 'password' => 'admin',
                 'role_id' => $adminRole->id,
                 'department_id' => $directionDept->id,
@@ -91,7 +94,7 @@ class UserSeeder extends Seeder
                 'name' => 'Moreau',
                 'first_name' => 'Pierre',
                 'matricule' => 'DRH002',
-                'email' => 'directeur.rh@mail.com',
+                'email' => 'iboug670@gmail.com',
                 'password' => 'directeur',
                 'role_id' => $directeurRhRole->id,
                 'department_id' => $rhDept->id,
@@ -124,7 +127,7 @@ class UserSeeder extends Seeder
                 'name' => 'Martin',
                 'first_name' => 'Jean',
                 'matricule' => 'SUP001',
-                'email' => 'superieur@mail.com',
+                'email' => 'alimalaye54@gmail.com',
                 'password' => 'superieur',
                 'role_id' => $superieurRole->id,
                 'department_id' => $informatiqueDept->id,
@@ -135,7 +138,7 @@ class UserSeeder extends Seeder
                 'name' => 'Dupont',
                 'first_name' => 'Marie',
                 'matricule' => 'EMP002',
-                'email' => 'employe@mail.com',
+                'email' => 'kaousmane3599@gmail.com',
                 'password' => 'employe',
                 'role_id' => $employeRole->id,
                 'department_id' => $informatiqueDept->id,

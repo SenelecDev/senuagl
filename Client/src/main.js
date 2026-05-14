@@ -23,6 +23,7 @@ import Aura from '@primevue/themes/aura';
 
 // Import des stores
 import { useUserStore } from "./stores/users";
+import { useNotificationsStore } from "./stores/notifications";
 
 const vuetify = createVuetify({
   components,
@@ -71,9 +72,16 @@ app.use(PrimeVue, {
 });
 app.use(ToastService);
 
-// Initialisation de l'authentification
-const userStore = useUserStore();
-userStore.initializeAuth();
 
 // Montage de l'application
 app.mount("#app");
+
+// Initialiser auth puis notifications seulement si connecté
+const userStore = useUserStore();
+userStore.initializeAuth().then(() => {
+  const notificationsStore = useNotificationsStore();
+  if (userStore.isAuthenticated) {
+    notificationsStore.fetchNotifications();
+    notificationsStore.initRealtimeNotifications();
+  }
+});

@@ -26,11 +26,14 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
-  '/api': {
-    target: 'http://localhost:8081',
-    changeOrigin: true,
-    secure: false,
-  },
-},
+      '/api': {
+        // 127.0.0.1 avoids occasional localhost DNS resolution issues on Windows.
+        target: 'http://127.0.0.1:8081',
+        changeOrigin: true,
+        secure: false,
+        timeout: 65000,
+        proxyTimeout: 65000,
+      },
+    },
   },
 });

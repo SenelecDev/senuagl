@@ -440,7 +440,12 @@ const router = createRouter({
 
 // Temporairement désactivé pour le développement frontend
 router.beforeEach((to, from, next) => {
-  next();
+  const token = localStorage.getItem('auth_token');
+  if (to.path !== '/' && !token) {
+    next('/');
+  } else {
+    next();
+  }
 });
 
 // Mise à jour du titre de la page

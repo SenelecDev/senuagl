@@ -73,9 +73,9 @@
             />
             <v-select
               v-model="form.role_id"
-              :items="roles"
-              item-title="nom"
-              item-value="id"
+              :items="roleSelectItems"
+              item-title="title"
+              item-value="value"
               label="Rôle"
               variant="outlined"
               density="comfortable"
@@ -228,6 +228,16 @@ export default {
   },
 
   computed: {
+    /** Vuetify 3 attend des items avec title/value ; l’API envoie nom / id. */
+    roleSelectItems() {
+      const list = Array.isArray(this.roles) ? this.roles : [];
+      return list
+        .map((r) => ({
+          title: r?.nom ?? r?.name ?? `Rôle #${r?.id ?? '?'}`,
+          value: r?.id,
+        }))
+        .filter((x) => x.value != null);
+    },
     dialog: {
       get() { return this.modelValue; },
       set(value) { this.$emit('update:modelValue', value); }

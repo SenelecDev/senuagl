@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\DemandeConge;
-use App\Models\Notification;
+use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\NotificationService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
@@ -13,6 +15,10 @@ use Carbon\Carbon;
 
 class DemandeCongeController extends Controller
 {
+    public function __construct(private NotificationService $notificationService)
+    {
+    }
+
     // ================================================================
     // RÈGLES DE CONTRÔLE
     // ================================================================
@@ -108,15 +114,56 @@ class DemandeCongeController extends Controller
 
     public function index(Request $request)
     {
-        $query = DemandeConge::with(['user', 'validateur'])
+        $query = DemandeConge::with(['user', 'user.department', 'validateur'])
                              ->where('user_id', $request->user()->id);
 
-        if ($request->has('statut')) $query->where('statut', $request->statut);
-        if ($request->has('type')) $query->where('type_demande', $request->type);
+        if ($request->has('statut')) {
+            $query->where('statut', $request->statut);
+        }
+        if ($request->has('type')) {
+            $query->where('type_demande', $request->type);
+        }
         if ($request->has('date_debut')) $query->whereDate('date_debut', '>=', $request->date_debut);
         if ($request->has('date_fin')) $query->whereDate('date_fin', '<=', $request->date_fin);
 
         $demandes = $query->orderBy('created_at', 'desc')->paginate(10);
+        return response()->json(['success' => true, 'data' => $demandes]);
+    }
+
+    /**
+     * Demandes approuvées (tous les agents) pour la page Documents administratifs / attestations.
+     * Réservé aux rôles pouvant valider les congés ou à l’administrateur.
+     */
+    public function indexApprovedForDocuments(Request $request)
+    {
+        $user = $request->user();
+        if (!$user->canValidateLeave() && ($user->role?->nom ?? '') !== 'Admin') {
+            return response()->json(['message' => 'Accès non autorisé'], 403);
+        }
+
+        $query = DemandeConge::with(['user', 'user.department', 'validateur'])
+            ->where('statut', 'approuve');
+
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->whereHas('user', function ($q) use ($s) {
+                $q->where('name', 'like', '%' . $s . '%')
+                    ->orWhere('first_name', 'like', '%' . $s . '%')
+                    ->orWhere('matricule', 'like', '%' . $s . '%');
+            });
+        }
+
+        if ($request->filled('type')) {
+            $query->where('type_demande', $request->type);
+        }
+
+        $perPage = min(max((int) $request->get('per_page', 50), 1), 100);
+
+        $demandes = $query
+            ->orderByDesc('date_validation')
+            ->orderByDesc('updated_at')
+            ->paginate($perPage);
+
         return response()->json(['success' => true, 'data' => $demandes]);
     }
 
@@ -199,20 +246,29 @@ class DemandeCongeController extends Controller
             ['demande_id' => $demande->id, 'user_id' => $user->id]
         );
 
-        // ---- Notification manager ----
+        // ---- Notifications : manager + validateurs (même logique que demandesAValider) ----
         try {
+            $title = 'Nouvelle demande de congé';
+            $message = "{$user->full_name} a soumis une demande de {$demande->type_label}";
+            $payload = ['demande_id' => $demande->id];
+            $notifiedIds = [];
+
             $manager = $user->manager()->first();
             if ($manager) {
-                Notification::create([
-                    'user_id' => $manager->id,
-                    'titre'   => 'Nouvelle demande de congé',
-                    'message' => "{$user->full_name} a soumis une demande de {$demande->type_label}",
-                    'type'    => 'info',
-                    'data'    => ['demande_id' => $demande->id],
-                ]);
+                $this->notificationService->sendToUser($manager, $title, $message, 'info', $payload, true);
+                $notifiedIds[$manager->id] = true;
+            }
+
+            foreach ($this->validatorRecipientsForNewDemande($user) as $recipient) {
+                if (isset($notifiedIds[$recipient->id])) {
+                    continue;
+                }
+                // Cloche + websocket seulement (évite d’envoyer un mail à tous les DRH à chaque demande)
+                $this->notificationService->sendToUser($recipient, $title, $message, 'info', $payload, false);
+                $notifiedIds[$recipient->id] = true;
             }
         } catch (\Exception $e) {
-            \Log::warning('Notification manager échouée: ' . $e->getMessage());
+            \Log::warning('Notification nouvelle demande échouée: ' . $e->getMessage());
         }
 
         return response()->json([
@@ -229,6 +285,50 @@ class DemandeCongeController extends Controller
             return response()->json(['success' => false, 'message' => 'Accès non autorisé'], 403);
         }
         return response()->json(['success' => true, 'data' => $demande->load(['user', 'validateur'])]);
+    }
+
+    /**
+     * Téléchargement d'une attestation administrative (PDF) pour une demande approuvée.
+     */
+    public function attestationPdf(Request $request, DemandeConge $demande)
+    {
+        $user = $request->user();
+        if (!$this->userCanAccessDemandePdf($user, $demande)) {
+            return response()->json(['message' => 'Accès non autorisé'], 403);
+        }
+        if ($demande->statut !== 'approuve') {
+            return response()->json([
+                'message' => 'Une attestation PDF n’est disponible que pour les demandes approuvées.',
+            ], 422);
+        }
+
+        $demande->loadMissing(['user.department']);
+
+        Carbon::setLocale('fr');
+
+        $title = $this->resolveAttestationTitle($demande->type_demande);
+        $employeName = $demande->user->full_name;
+        $serviceName = $demande->user->department?->name ?? '—';
+        $dateDebutFr = $demande->date_debut->translatedFormat('d F Y');
+        $dateFinFr = $demande->date_fin->translatedFormat('d F Y');
+        $faitLe = now()->translatedFormat('d F Y');
+        $typeNature = $demande->type_label;
+        $article = $demande->type_demande === 'absence_exceptionnelle' ? 'une' : 'un';
+
+        $pdf = Pdf::loadView('pdf.attestation-conge', compact(
+            'title',
+            'employeName',
+            'serviceName',
+            'dateDebutFr',
+            'dateFinFr',
+            'faitLe',
+            'typeNature',
+            'article'
+        ))->setPaper('a4', 'portrait');
+
+        $filename = 'attestation-conge-' . $demande->id . '.pdf';
+
+        return $pdf->download($filename);
     }
 
     public function indexAdmin(Request $request)
@@ -338,15 +438,16 @@ class DemandeCongeController extends Controller
         try {
             $demande->load('user');
             if ($demande->user_id) {
-                Notification::create([
-                    'user_id' => $demande->user_id,
-                    'titre'   => 'Demande de congé ' . ($statut === 'approuve' ? 'approuvée' : 'rejetée'),
-                    'message' => "Votre demande de {$demande->type_label} a été "
+                $this->notificationService->sendToUser(
+                    $demande->user,
+                    'Demande de congé ' . ($statut === 'approuve' ? 'approuvée' : 'rejetée'),
+                    "Votre demande de {$demande->type_label} a été "
                         . ($statut === 'approuve' ? 'approuvée' : 'rejetée')
                         . " par {$user->full_name}",
-                    'type' => $statut === 'approuve' ? 'success' : 'error',
-                    'data' => ['demande_id' => $demande->id],
-                ]);
+                    $statut === 'approuve' ? 'success' : 'error',
+                    ['demande_id' => $demande->id],
+                    true
+                );
             }
         } catch (\Exception $e) {
             \Log::warning('Notification validation échouée: ' . $e->getMessage());
@@ -395,6 +496,62 @@ class DemandeCongeController extends Controller
 
         $demandes = $query->orderBy('created_at', 'desc')->paginate(100);
         return response()->json(['success' => true, 'data' => $demandes]);
+    }
+
+    /**
+     * Utilisateurs qui voient la demande dans « demandes à valider » : ils reçoivent la notif cloche à la création.
+     * (Aligné sur demandesAValider.)
+     */
+    private function validatorRecipientsForNewDemande(User $submitter): \Illuminate\Support\Collection
+    {
+        return User::query()
+            ->with('role')
+            ->where('is_active', true)
+            ->whereKeyNot($submitter->id)
+            ->whereHas('role', function ($q) {
+                $q->whereIn('nom', ['Superieur', 'Directeur RH', 'Responsable RH', 'Directeur Unité', 'Admin']);
+            })
+            ->get()
+            ->filter(function (User $validator) use ($submitter) {
+                return match ($validator->role?->nom) {
+                    'Superieur' => $validator->subordinates()->whereKey($submitter->id)->exists(),
+                    'Responsable RH', 'Directeur Unité' => $validator->department_id !== null
+                        && (int) $validator->department_id === (int) $submitter->department_id,
+                    'Directeur RH', 'Admin' => true,
+                    default => false,
+                };
+            })
+            ->unique('id')
+            ->values();
+    }
+
+    private function userCanAccessDemandePdf(User $user, DemandeConge $demande): bool
+    {
+        if ((int) $demande->user_id === (int) $user->id) {
+            return true;
+        }
+        if ($user->canValidateLeave()) {
+            return true;
+        }
+        if (($user->role?->nom ?? '') === 'Admin') {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function resolveAttestationTitle(string $typeDemande): string
+    {
+        return match ($typeDemande) {
+            'conge_annuel',
+            'conge_sans_solde',
+            'conge_maladie',
+            'conge_maternite',
+            'conge_paternite' => 'ATTESTATION DE CONGÉ',
+            'absence_exceptionnelle' => "ATTESTATION D'ABSENCE",
+            'report_conge' => 'ATTESTATION DE REPORT DE CONGÉ',
+            default => 'ATTESTATION',
+        };
     }
 
     private function storeSignature($signatureData, $userId)

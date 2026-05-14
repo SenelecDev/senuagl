@@ -81,6 +81,9 @@
       </div>
     </div>
 
+    <p v-if="loadError" class="load-banner load-banner--error">{{ loadError }}</p>
+    <p v-else-if="loading" class="load-banner">Chargement des demandes approuvées…</p>
+
     <!-- Liste des demandes avec design moderne -->
     <div class="demandes-container">
       <div class="demandes-grid">
@@ -147,7 +150,11 @@
               <i class="fas fa-eye"></i>
               Aperçu
             </button>
-            <button class="btn-generate" @click="generateDocument(demande)">
+            <button
+              class="btn-generate"
+              :disabled="pdfGenerating"
+              @click="generateDocument(demande)"
+            >
               <i class="fas fa-file-pdf"></i>
               Générer
             </button>
@@ -193,8 +200,8 @@
                 <p class="preview-text">Atteste que M./Mme <strong>{{ selectedDemande?.employe }}</strong>,</p>
                 <p class="preview-text">En service au département <strong>{{ selectedDemande?.service }}</strong>,</p>
                 <p class="preview-text">
-                  Bénéficie d'un{{ selectedDemande?.type === 'Absence' ? 'e' : '' }} 
-                  {{ selectedDemande?.type.toLowerCase() }} pour la période du
+                  Bénéficie {{ absenceArticle(selectedDemande?.type) }}
+                  {{ (selectedDemande?.type || '').toLowerCase() }} pour la période du
                   <strong>{{ formatDate(selectedDemande?.dateDebut) }}</strong> au
                   <strong>{{ formatDate(selectedDemande?.dateFin) }}</strong>.
                 </p>
@@ -217,9 +224,13 @@
             <i class="fas fa-times"></i>
             Annuler
           </button>
-          <button class="btn-primary" @click="generateDocument(selectedDemande)">
+          <button
+            class="btn-primary"
+            :disabled="pdfGenerating"
+            @click="generateDocument(selectedDemande)"
+          >
             <i class="fas fa-file-pdf"></i>
-            Générer le PDF
+            {{ pdfGenerating ? 'Génération…' : 'Générer le PDF' }}
           </button>
         </div>
       </div>
@@ -228,6 +239,8 @@
 </template>
 
 <script>
+import { demandesApi } from "@/services/api";
+
 export default {
   name: "DocumentsAdministratifsView",
   data() {
@@ -236,9 +249,12 @@ export default {
       showTypeFilter: false,
       showPeriodFilter: false,
       typeDemandeFiltre: "tous",
-      periodeFiltre: "mois",
+      periodeFiltre: "tous",
       showPreviewModal: false,
       selectedDemande: null,
+      loading: false,
+      loadError: null,
+      pdfGenerating: false,
       typesDemande: [
         { value: "tous", label: "Tous les types", icon: "fas fa-list" },
         { value: "conges", label: "Congés annuels", icon: "fas fa-umbrella-beach" },
@@ -251,27 +267,11 @@ export default {
         { value: "mois", label: "Ce mois", icon: "fas fa-calendar-alt" },
         { value: "trimestre", label: "Ce trimestre", icon: "fas fa-calendar-check" }
       ],
-      demandes: [
-        {
-          id: 1,
-          type: "Congés Annuels",
-          employe: "Moussa Diallo",
-          service: "Production",
-          dateDebut: "2024-03-15",
-          dateFin: "2024-03-30",
-          statut: "approved"
-        },
-        {
-          id: 2,
-          type: "Absence",
-          employe: "Fatou Sow",
-          service: "Finance",
-          dateDebut: "2024-03-20",
-          dateFin: "2024-03-22",
-          statut: "approved"
-        }
-      ]
+      demandes: []
     };
+  },
+  mounted() {
+    this.loadDemandes();
   },
   computed: {
     hasActiveFilters() {
@@ -289,7 +289,23 @@ export default {
       }
 
       if (this.typeDemandeFiltre !== "tous") {
-        demandes = demandes.filter(d => d.type.toLowerCase().includes(this.typeDemandeFiltre));
+        demandes = demandes.filter((d) => {
+          const t = (d.type_demande || "").toLowerCase();
+          if (this.typeDemandeFiltre === "conges") {
+            return (
+              t.includes("conge") &&
+              !t.includes("report") &&
+              t !== "report_conge"
+            );
+          }
+          if (this.typeDemandeFiltre === "absence") {
+            return t.includes("absence");
+          }
+          if (this.typeDemandeFiltre === "report") {
+            return t.includes("report");
+          }
+          return true;
+        });
       }
 
       return demandes;
@@ -311,18 +327,26 @@ export default {
         .toUpperCase();
     },
     getTypeIcon(type) {
+      const t = (type || "").toLowerCase();
+      if (t.includes("absence")) return "fas fa-user-clock";
+      if (t.includes("report")) return "fas fa-history";
+      if (t.includes("congé") || t.includes("conge")) return "fas fa-umbrella-beach";
       const icons = {
         "Congés Annuels": "fas fa-umbrella-beach",
-        "Absence": "fas fa-user-clock",
-        "Report": "fas fa-history"
+        Absence: "fas fa-user-clock",
+        Report: "fas fa-history"
       };
       return icons[type] || "fas fa-file-alt";
     },
     getTypeBadgeClass(type) {
+      const t = (type || "").toLowerCase();
+      if (t.includes("absence")) return "type-absence";
+      if (t.includes("report")) return "type-report";
+      if (t.includes("congé") || t.includes("conge")) return "type-conges";
       const classes = {
         "Congés Annuels": "type-conges",
-        "Absence": "type-absence",
-        "Report": "type-report"
+        Absence: "type-absence",
+        Report: "type-report"
       };
       return classes[type] || "type-default";
     },
@@ -335,12 +359,62 @@ export default {
       return periode ? periode.label : "";
     },
     getDocumentTitle(type) {
-      const titles = {
-        "Congés Annuels": "ATTESTATION DE CONGÉ",
-        "Absence": "ATTESTATION D'ABSENCE",
-        "Report": "ATTESTATION DE REPORT DE CONGÉ"
+      const t = (type || "").toLowerCase();
+      if (t.includes("absence")) return "ATTESTATION D'ABSENCE";
+      if (t.includes("report")) return "ATTESTATION DE REPORT DE CONGÉ";
+      return "ATTESTATION DE CONGÉ";
+    },
+    absenceArticle(typeLabel) {
+      const t = (typeLabel || "").toLowerCase();
+      return t.includes("absence") ? "d'une" : "d'un";
+    },
+    mapDemandeRow(row) {
+      const u = row.user || {};
+      const dept = u.department || {};
+      const employe =
+        u.full_name ||
+        [u.first_name, u.name].filter(Boolean).join(" ").trim() ||
+        "—";
+      return {
+        id: row.id,
+        type_demande: row.type_demande,
+        type: row.type_label || row.type_demande || "—",
+        employe,
+        service: dept.name || "—",
+        dateDebut: row.date_debut,
+        dateFin: row.date_fin,
+        statut: row.statut
       };
-      return titles[type] || "ATTESTATION";
+    },
+    async loadDemandes() {
+      this.loading = true;
+      this.loadError = null;
+      try {
+        const { data: body } = await demandesApi.listApprovedForDocuments({
+          per_page: 100
+        });
+        const page = body?.data;
+        const rows = Array.isArray(page?.data)
+          ? page.data
+          : Array.isArray(page)
+            ? page
+            : [];
+        this.demandes = rows.map((r) => this.mapDemandeRow(r));
+      } catch (e) {
+        const status = e.response?.status;
+        const apiMsg = e.response?.data?.message;
+        if (status === 404) {
+          this.loadError =
+            "L’API ne trouve pas la route des documents (serveur pas à jour ou cache routes). " +
+            "Sur Docker : reconstruire ou redémarrer le service Laravel, par ex. " +
+            "`docker compose up -d --build laravel` puis `docker compose restart laravel`.";
+        } else {
+          this.loadError = apiMsg || e.message || "Impossible de charger les demandes.";
+        }
+        this.demandes = [];
+      } finally {
+        this.loading = false;
+      }
     },
     toggleTypeFilter() {
       this.showTypeFilter = !this.showTypeFilter;
@@ -378,13 +452,41 @@ export default {
       this.selectedDemande = null;
     },
     async generateDocument(demande) {
-      // Implémenter la logique de génération de PDF
-      console.log("Génération du document pour:", demande);
-      // Simuler la génération
-      setTimeout(() => {
-        alert("Document généré avec succès !");
+      if (!demande?.id) {
+        alert("Demande invalide.");
+        return;
+      }
+      this.pdfGenerating = true;
+      try {
+        const response = await demandesApi.attestationPdf(demande.id);
+        const blob = new Blob([response.data], { type: "application/pdf" });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `attestation-conge-${demande.id}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
         this.closePreview();
-      }, 1000);
+      } catch (e) {
+        let msg = "Échec de la génération du PDF.";
+        const d = e.response?.data;
+        if (d instanceof Blob) {
+          try {
+            const text = await d.text();
+            const j = JSON.parse(text);
+            if (j.message) msg = j.message;
+          } catch (_) {
+            /* ignore */
+          }
+        } else if (e.response?.data?.message) {
+          msg = e.response.data.message;
+        }
+        alert(msg);
+      } finally {
+        this.pdfGenerating = false;
+      }
     }
   }
 };
@@ -395,6 +497,20 @@ export default {
   padding: 2rem;
   background: #f8fafc;
   min-height: 100vh;
+}
+
+.load-banner {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 0.95rem;
+}
+
+.load-banner--error {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 /* Style du header harmonisé avec le dashboard */
@@ -723,8 +839,13 @@ export default {
   color: white;
 }
 
-.btn-generate:hover {
+.btn-generate:hover:not(:disabled) {
   background: #006d7a;
+}
+
+.btn-generate:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .empty-state {
@@ -914,8 +1035,13 @@ export default {
   color: white;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: #006d7a;
+}
+
+.btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 @media (max-width: 768px) {

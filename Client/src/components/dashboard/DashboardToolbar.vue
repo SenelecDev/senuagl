@@ -134,6 +134,8 @@ export default {
   emits: ["toggle-sidebar"],
   methods: {
     logout() {
+      this.notificationsStore.teardownRealtimeNotifications()
+      localStorage.removeItem("auth_token");
       localStorage.removeItem("user");
       this.$router.push("/");
     },

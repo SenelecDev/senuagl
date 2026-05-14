@@ -22,6 +22,11 @@ psql:
 
 ### 🐘 Laravel (backend)
 
+laravel-refresh:
+	docker compose exec laravel php artisan route:clear
+	docker compose exec laravel php artisan config:clear
+	docker compose restart laravel
+
 bash:
 	docker exec -it laravel bash
 

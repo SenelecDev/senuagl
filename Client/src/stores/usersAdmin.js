@@ -131,7 +131,10 @@ export const useUsersAdminStore = defineStore('usersAdmin', {
         console.log('👤 Rôles API response:', response.data);
         
         if (response.data.success) {
-          this.roles = response.data.data || [];
+          const raw = response.data.data;
+          this.roles = Array.isArray(raw)
+            ? raw
+            : (raw && Array.isArray(raw.data) ? raw.data : []);
           this.cache.roles = {
             data: this.roles,
             timestamp: now
@@ -170,7 +173,10 @@ export const useUsersAdminStore = defineStore('usersAdmin', {
         console.log('🏢 Départements API response:', response.data);
         
         if (response.data.success) {
-          this.departments = response.data.data || [];
+          const raw = response.data.data;
+          this.departments = Array.isArray(raw)
+            ? raw
+            : (raw && Array.isArray(raw.data) ? raw.data : []);
           this.cache.departments = {
             data: this.departments,
             timestamp: now

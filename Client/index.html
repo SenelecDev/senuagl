@@ -14,7 +14,7 @@
           console.warn('Erreur "ze" détectée - Problème connu avec la connexion API');
           console.info('Vérifiez que Docker est démarré et que l\'API est accessible');
           // Essayer de faire un diagnostic de base
-          fetch('http://localhost/api/test')
+          fetch('/api/test')
             .then(r => r.json())
             .then(data => console.log('✅ API test accessible:', data))
             .catch(err => console.error('❌ API inaccessible:', err));
@@ -28,27 +28,40 @@
     <script type="module" src="/src/main.js"></script>
     <!-- Script de détection de problèmes de chargement -->
     <script>
-      // Vérifier si l'application se charge correctement
+      // Vérifier si l'application se charge correctement.
+      // On évite d'afficher un faux "problème" si le montage est juste lent.
       setTimeout(() => {
         const appElement = document.getElementById('app');
-        if (appElement && !appElement.hasChildNodes()) {
-          console.error('L\'application n\'a pas pu se charger correctement après 5 secondes');
-          appElement.innerHTML = `
-            <div style="padding: 20px; text-align: center; font-family: sans-serif;">
-              <h2>Problème de chargement</h2>
-              <p>L'application n'a pas pu se charger correctement. Vérifiez que:</p>
-              <ul style="text-align: left; display: inline-block;">
-                <li>Docker est démarré correctement</li>
-                <li>Le serveur API est accessible</li>
-                <li>Votre connexion réseau est stable</li>
-              </ul>
-              <button onclick="window.location.reload()" style="margin-top: 20px; padding: 10px 20px;">
-                Rafraîchir la page
-              </button>
-            </div>
-          `;
-        }
-      }, 5000);
+        if (!appElement || appElement.hasChildNodes()) return;
+
+        fetch('/api/test', { cache: 'no-store' })
+          .then((r) => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            // API OK mais app pas montée -> on laisse encore un peu.
+            setTimeout(() => {
+              if (appElement && !appElement.hasChildNodes()) {
+                console.error('L\'application n\'a pas pu se charger correctement (API OK, UI non montée)');
+              }
+            }, 5000);
+          })
+          .catch((err) => {
+            console.error('API inaccessible:', err);
+            appElement.innerHTML = `
+              <div style="padding: 20px; text-align: center; font-family: sans-serif;">
+                <h2>Problème de chargement</h2>
+                <p>L'application n'a pas pu se charger correctement. Vérifiez que:</p>
+                <ul style="text-align: left; display: inline-block;">
+                  <li>Docker est démarré correctement</li>
+                  <li>Le serveur API est accessible</li>
+                  <li>Votre connexion réseau est stable</li>
+                </ul>
+                <button onclick="window.location.reload()" style="margin-top: 20px; padding: 10px 20px;">
+                  Rafraîchir la page
+                </button>
+              </div>
+            `;
+          });
+      }, 15000);
     </script>
   </body>
 </html>

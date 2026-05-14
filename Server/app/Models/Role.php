@@ -19,6 +19,11 @@ class Role extends Model
         'permissions' => 'array',
     ];
 
+    /** Inclut `name` dans le JSON API (alias de `nom`) pour les clients qui attendent `name`. */
+    protected $appends = [
+        'name',
+    ];
+
     // Accesseur pour assurer la compatibilité avec 'name'
     public function getNameAttribute()
     {

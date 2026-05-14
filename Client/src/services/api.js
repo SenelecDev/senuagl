@@ -1,7 +1,11 @@
 import axios from 'axios';
 
-// Récupérer la configuration depuis les variables d'environnement
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost/api';
+
+
+// En developpement, on cible directement nginx Docker pour eviter les
+// problemes intermittents de proxy/localhost sous Windows.
+const API_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+console.log('🌐 API base URL active:', API_URL);
 
 // Configuration de base d'Axios avec plus de robustesse
 const apiClient = axios.create({
@@ -53,13 +57,9 @@ apiClient.interceptors.response.use(
       console.error('📡 Pas de réponse reçue:', error.request);
     }
 
-    // Gestion des erreurs d'authentification
-    if (error.response?.status === 401) {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      window.location.href = '/';
-    }
-
+    // Ne pas vider la session ici sur tout 401 : cela provoquait une désynchronisation
+    // (Pinia encore "connecté", stockage vidé) et des erreurs en cascade.
+    // La session est validée au démarrage (initializeAuth → /user) et gérée par logout / clearStorage.
     // Gestion des erreurs de validation (422)
     if (error.response?.status === 422) {
       const validationErrors = error.response.data.errors;
@@ -131,12 +131,21 @@ export const departmentsApi = {
 
 export const demandesApi = {
   list: (params = {}) => apiClient.get('/demandes-conges', { params }),
+  /** Toutes les demandes approuvées (RH / validateurs / admin) — attestations */
+  listApprovedForDocuments: (params = {}) =>
+    apiClient.get('/demandes-conges-documents-approuves', { params }),
   create: (data) => apiClient.post('/demandes-conges', data),
   get: (id) => apiClient.get(`/demandes-conges/${id}`),
   update: (id, data) => apiClient.put(`/demandes-conges/${id}`, data),
   delete: (id) => apiClient.delete(`/demandes-conges/${id}`),
   validate: (id, data) => apiClient.post(`/demandes-conges/${id}/validate`, data),
   demandesAValider: (params = {}) => apiClient.get('/demandes-a-valider', { params }),
+  /** PDF attestation (réponse binaire) */
+  attestationPdf: (id) =>
+    apiClient.get(`/demandes-conges/${id}/attestation-pdf`, {
+      responseType: 'blob',
+      headers: { Accept: 'application/pdf' },
+    }),
 };
 
 export const adminApi = {

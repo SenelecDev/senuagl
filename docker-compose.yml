@@ -3,8 +3,7 @@ services:
     build: ./Server
     container_name: laravel
     restart: always
-    env_file:
-      - ./Server/.env
+  
     volumes:
       - ./Server:/var/www
     depends_on:
@@ -30,7 +29,7 @@ services:
     environment:
       POSTGRES_DB: bd-app-conges
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: admin123 aqa11q°!°°°°°°°°°°°°°°°°°a
+      POSTGRES_PASSWORD: admin123
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
@@ -53,6 +52,21 @@ services:
       - ./Server/public:/var/www/public
     depends_on:
       - laravel
+    networks:
+      - app-network
+
+  soketi:
+    image: quay.io/soketi/soketi:latest-16-alpine
+    container_name: soketi
+    restart: always
+    environment:
+      SOKETI_DEFAULT_APP_ID: senuagl
+      SOKETI_DEFAULT_APP_KEY: senuagl-key
+      SOKETI_DEFAULT_APP_SECRET: senuagl-secret
+      SOKETI_DEFAULT_APP_ENABLE_CLIENT_MESSAGES: "false"
+      SOKETI_DEFAULT_APP_ENABLE_USER_AUTHENTICATION: "true"
+    ports:
+      - "6001:6001"
     networks:
       - app-network
 

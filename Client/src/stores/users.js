@@ -57,19 +57,22 @@ export const useUserStore = defineStore('user', {
       try {
         await authApi.logout();
       } catch (error) {
-        console.warn('⚠️ Erreur lors de la déconnexion côté serveur:', error);
+        console.warn('Erreur lors de la déconnexion côté serveur:', error);
       } finally {
-        // Nettoyer l'état local même si l'API échoue
         this.user = null;
         this.token = null;
         this.isAuthenticated = false;
         this.error = null;
-        
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user');
-        
         this.loading = false;
-        console.log('✅ Déconnexion réussie');
+    
+        // Vider les notifications de l'ancien utilisateur
+        const { useNotificationsStore } = await import('./notifications');
+        const notifStore = useNotificationsStore();
+        notifStore.globalNotifications = [];
+        notifStore.notifications = [];
+        notifStore.teardownRealtimeNotifications();
       }
     },
 
@@ -77,12 +80,14 @@ export const useUserStore = defineStore('user', {
       const token = localStorage.getItem('auth_token');
       const userStr = localStorage.getItem('user');
 
+      this.token = token || null;
+      this.user = null;
+      this.isAuthenticated = false;
+
       if (token && userStr) {
         try {
-          this.token = token;
           this.user = JSON.parse(userStr);
-          this.isAuthenticated = true;
-          console.log('✅ Session restaurée depuis le localStorage');
+          console.log('✅ Données de session lues depuis le localStorage (validation serveur en cours)');
         } catch (error) {
           console.error('❌ Erreur lors de la restauration de session:', error);
           this.clearStorage();
@@ -99,8 +104,28 @@ export const useUserStore = defineStore('user', {
     },
 
     async initializeAuth() {
-      // Restaurer la session depuis le localStorage au démarrage
       await this.initFromStorage();
+
+      if (!this.token) {
+        console.log('✅ Authentification initialisée (non connecté)');
+        return;
+      }
+
+      try {
+        const response = await authApi.user();
+        if (response.data?.success && response.data?.data?.user) {
+          this.user = response.data.data.user;
+          this.isAuthenticated = true;
+          localStorage.setItem('user', JSON.stringify(this.user));
+          console.log('✅ Session validée auprès du serveur');
+        } else {
+          this.clearStorage();
+        }
+      } catch (error) {
+        console.warn('Session invalide, expirée ou non reconnue par le serveur:', error.response?.status || error.message);
+        this.clearStorage();
+      }
+
       console.log('✅ Authentification initialisée');
     },
 

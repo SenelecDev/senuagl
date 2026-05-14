@@ -1,39 +1,14 @@
 import { defineStore } from 'pinia'
+import { notificationsApi } from '@/services/api'
+import { disconnectEcho, getEcho } from '@/services/echo'
 
 export const useNotificationsStore = defineStore('notifications', {
   state: () => ({
     notifications: [],
     maxNotifications: 5,
-    globalNotifications: [
-      // Notifications pour la toolbar/sidebar
-      {
-        id: 1,
-        type: 'info',
-        title: 'Nouvelle demande',
-        message: 'Une nouvelle demande de congé a été soumise par Fatou Sall',
-        read: false,
-        timestamp: new Date().toISOString(),
-        category: 'demande'
-      },
-      {
-        id: 2,
-        type: 'success',
-        title: 'Demande validée',
-        message: 'Votre demande de congé du 15/08 au 25/08 a été approuvée',
-        read: false,
-        timestamp: new Date(Date.now() - 3600000).toISOString(), // 1h ago
-        category: 'validation'
-      },
-      {
-        id: 3,
-        type: 'warning',
-        title: 'Rappel planification',
-        message: 'N\'oubliez pas de planifier vos congés annuels avant fin décembre',
-        read: true,
-        timestamp: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-        category: 'rappel'
-      }
-    ]
+    globalNotifications: [],
+    channelName: null,
+    isLoading: false
   }),
 
   getters: {
@@ -92,30 +67,59 @@ export const useNotificationsStore = defineStore('notifications', {
     },
 
     // Pour les notifications globales (toolbar/persistantes)
-    addGlobalNotification(notification) {
-      const newNotification = {
-        id: Date.now(),
-        type: 'info',
-        title: '',
-        message: '',
-        read: false,
-        timestamp: new Date().toISOString(),
-        category: 'general',
-        ...notification
+    normalizeNotification(notification) {
+      return {
+        id: notification.id,
+        type: notification.type || 'info',
+        title: notification.title || notification.titre || '',
+        message: notification.message || '',
+        read: Boolean(notification.read ?? notification.lu),
+        timestamp: notification.timestamp || notification.created_at || new Date().toISOString(),
+        category: notification.category || 'general',
+        data: notification.data || {}
       }
-      
-      this.globalNotifications.unshift(newNotification)
     },
 
-    markAsRead(id) {
+    addGlobalNotification(notification) {
+      const normalized = this.normalizeNotification(notification)
+      const alreadyExists = this.globalNotifications.some((item) => item.id === normalized.id)
+      if (!alreadyExists) {
+        this.globalNotifications.unshift(normalized)
+      }
+    },
+
+    async fetchNotifications() {
+      this.isLoading = true
+      try {
+        const response = await notificationsApi.list({ per_page: 20 })
+        const rows = response?.data?.data?.data || response?.data?.data || []
+        this.globalNotifications = rows.map((row) => this.normalizeNotification(row))
+      } catch (error) {
+        console.error('Erreur lors du chargement des notifications:', error)
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    async markAsRead(id) {
       const notification = this.globalNotifications.find(n => n.id === id)
       if (notification) {
         notification.read = true
       }
+      try {
+        await notificationsApi.markAsRead(id)
+      } catch (error) {
+        console.error('Erreur markAsRead:', error)
+      }
     },
 
-    markAllAsRead() {
+    async markAllAsRead() {
       this.globalNotifications.forEach(n => n.read = true)
+      try {
+        await notificationsApi.markAllAsRead()
+      } catch (error) {
+        console.error('Erreur markAllAsRead:', error)
+      }
     },
 
     removeGlobalNotification(id) {
@@ -166,6 +170,7 @@ export const useNotificationsStore = defineStore('notifications', {
     // Notifications spécifiques aux actions métier
     notifyDemandeSubmitted(demandeur) {
       this.addGlobalNotification({
+        id: Date.now(),
         type: 'info',
         title: 'Nouvelle demande',
         message: `${demandeur} a soumis une nouvelle demande de congé`,
@@ -181,6 +186,7 @@ export const useNotificationsStore = defineStore('notifications', {
         : `Demande de ${demandeur} rejetée`
       
       this.addGlobalNotification({
+        id: Date.now(),
         type: action === 'approve' ? 'success' : 'warning',
         title: action === 'approve' ? 'Demande approuvée' : 'Demande rejetée',
         message,
@@ -196,6 +202,7 @@ export const useNotificationsStore = defineStore('notifications', {
 
     notifyDemandeCancelled(demandeur) {
       this.addGlobalNotification({
+        id: Date.now(),
         type: 'info',
         title: 'Demande annulée',
         message: `${demandeur} a annulé sa demande de congé`,
@@ -203,6 +210,35 @@ export const useNotificationsStore = defineStore('notifications', {
       })
       
       this.notifyInfo('Demande annulée avec succès')
+    },
+
+    initRealtimeNotifications() {
+      const token = localStorage.getItem('auth_token')
+      const userRaw = localStorage.getItem('user')
+      if (!token || !userRaw) return
+
+      const user = JSON.parse(userRaw)
+      if (!user?.id) return
+
+      const channel = `users.${user.id}`
+      if (this.channelName === channel) return
+
+      const echo = getEcho(token)
+      this.channelName = channel
+
+      echo.private(channel).listen('.notification.created', (payload) => {
+        this.addGlobalNotification(payload)
+        this.notifyInfo(payload.message, payload.title || 'Nouvelle notification')
+      })
+    },
+
+    teardownRealtimeNotifications() {
+      if (this.channelName) {
+        const echo = getEcho(localStorage.getItem('auth_token'))
+        echo.leave(`private-${this.channelName}`)
+        this.channelName = null
+      }
+      disconnectEcho()
     }
   }
 })

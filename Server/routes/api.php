@@ -39,12 +39,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard/recent-activity', [DashboardController::class, 'recentActivity']);
     Route::get('/dashboard/stats-manager', [DashboardController::class, 'statsManager']);
     Route::get('/admin/activity-logs', [ActivityLogController::class, 'index']);
-    // Demandes de congés
+    // Liste des demandes approuvées (RH / validateurs / Admin) pour attestations PDF
+    Route::get('/demandes-conges-documents-approuves', [DemandeCongeController::class, 'indexApprovedForDocuments']);
+    // Demandes de congés (route spécifique avant apiResource pour éviter les conflits de binding)
+    Route::get('/demandes-conges/{demande}/attestation-pdf', [DemandeCongeController::class, 'attestationPdf']);
     Route::apiResource('demandes-conges', DemandeCongeController::class);
-Route::post('/demandes-conges/{id}/validate', function(\Illuminate\Http\Request $request, $id) {
-    $demande = \App\Models\DemandeConge::findOrFail($id);
-    return app(\App\Http\Controllers\Api\DemandeCongeController::class)->validateDemande($request, $demande);
-});    Route::get('/demandes-a-valider', [DemandeCongeController::class, 'demandesAValider']);
+    Route::post('/demandes-conges/{id}/validate', function (\Illuminate\Http\Request $request, $id) {
+        $demande = \App\Models\DemandeConge::findOrFail($id);
+        return app(\App\Http\Controllers\Api\DemandeCongeController::class)->validateDemande($request, $demande);
+    });
+    Route::get('/demandes-a-valider', [DemandeCongeController::class, 'demandesAValider']);
 
     // Gestion des utilisateurs (Admin)
     Route::apiResource('users', UserController::class);

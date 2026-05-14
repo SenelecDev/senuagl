@@ -10,13 +10,13 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Configuration OPcache pour performance maximale
+# OPcache : validate_timestamps=1 pour que les changements sous volume Docker (./Server) soient pris en compte
 RUN echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini \
     && echo "opcache.memory_consumption=256" >> /usr/local/etc/php/conf.d/opcache.ini \
     && echo "opcache.interned_strings_buffer=16" >> /usr/local/etc/php/conf.d/opcache.ini \
     && echo "opcache.max_accelerated_files=20000" >> /usr/local/etc/php/conf.d/opcache.ini \
-    && echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/opcache.ini \
-    && echo "opcache.revalidate_freq=0" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.validate_timestamps=1" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.revalidate_freq=2" >> /usr/local/etc/php/conf.d/opcache.ini \
     && echo "opcache.fast_shutdown=1" >> /usr/local/etc/php/conf.d/opcache.ini
 
 # Configuration PHP-FPM optimisée
@@ -44,13 +44,14 @@ COPY . .
 
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader
 
-# Optimisations Laravel au build
+# Ne pas figer les routes dans l’image : le code est monté en volume et évolue ; le cache routes au build provoquerait des 404 sur les nouvelles routes.
 RUN php artisan config:cache || true \
-    && php artisan route:cache || true \
+    && php artisan route:clear || true \
     && php artisan view:cache || true
 
 # Donner les droits à Laravel
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
-
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 EXPOSE 9000
-CMD ["php-fpm"]
+CMD ["/usr/local/bin/docker-entrypoint.sh"]

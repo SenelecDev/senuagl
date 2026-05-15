@@ -17,8 +17,26 @@ class BudgetController extends Controller
     {
         return response()->json([
             'services' => Service::query()->orderBy('code')->get(),
-            'comptes' => Compte::query()->orderBy('numero')->get(),
+            'comptes' => Compte::query()
+                ->withCount('enfants')
+                ->orderBy('numero')
+                ->get(),
         ]);
+    }
+
+    private function compteEstSaisissable(int $compteId): bool
+    {
+        return ! Compte::query()
+            ->where('id', $compteId)
+            ->whereHas('enfants')
+            ->exists();
+    }
+
+    private function compteNonSaisissableResponse(): JsonResponse
+    {
+        return response()->json([
+            'message' => 'Ce compte est un compte de regroupement. Saisir une ligne sur un sous-compte.',
+        ], 422);
     }
 
     /**
@@ -68,6 +86,9 @@ class BudgetController extends Controller
                 'montant_prevu' => ['required', 'numeric'],
                 'annee' => ['required', 'integer', 'min:2000', 'max:2100'],
             ]);
+            if (! $this->compteEstSaisissable((int) $validated['compte_id'])) {
+                return $this->compteNonSaisissableResponse();
+            }
             unset($validated['type']);
             $row = BudgetPrevision::create($validated);
 
@@ -84,6 +105,9 @@ class BudgetController extends Controller
                 'annee' => ['required', 'integer', 'min:2000', 'max:2100'],
                 'observation' => ['nullable', 'string'],
             ]);
+            if (! $this->compteEstSaisissable((int) $validated['compte_id'])) {
+                return $this->compteNonSaisissableResponse();
+            }
             unset($validated['type']);
             $row = Realisation::create($validated);
             $row->load(['service', 'compte']);
@@ -108,6 +132,9 @@ class BudgetController extends Controller
                 'montant_prevu' => ['sometimes', 'numeric'],
                 'annee' => ['sometimes', 'integer', 'min:2000', 'max:2100'],
             ]);
+            if (isset($validated['compte_id']) && ! $this->compteEstSaisissable((int) $validated['compte_id'])) {
+                return $this->compteNonSaisissableResponse();
+            }
             $row->update($validated);
 
             return response()->json($row->fresh(['service', 'compte']));
@@ -123,6 +150,9 @@ class BudgetController extends Controller
                 'annee' => ['sometimes', 'integer', 'min:2000', 'max:2100'],
                 'observation' => ['nullable', 'string'],
             ]);
+            if (isset($validated['compte_id']) && ! $this->compteEstSaisissable((int) $validated['compte_id'])) {
+                return $this->compteNonSaisissableResponse();
+            }
             $row->update($validated);
             $row->refresh();
             $row->load(['service', 'compte']);

@@ -11,22 +11,26 @@ class BudgetPrevisionSeeder extends Seeder
 {
     public function run(): void
     {
+        BudgetPrevision::query()
+            ->whereHas('compte.enfants')
+            ->delete();
+
         $sgb = Service::query()->where('code', 'SGB')->first();
         $sa = Service::query()->where('code', 'SA')->first();
-        $c661 = Compte::query()->where('numero', '661')->first();
-        $c605 = Compte::query()->where('numero', '605')->first();
+        $c647 = Compte::query()->where('numero', '647.000')->first();
+        $c605100 = Compte::query()->where('numero', '605100')->first();
         $c618 = Compte::query()->where('numero', '618000')->first();
 
-        if ($sgb && $c661) {
+        if ($sgb && $c647) {
             BudgetPrevision::query()->updateOrCreate(
-                ['service_id' => $sgb->id, 'compte_id' => $c661->id, 'annee' => 2025],
+                ['service_id' => $sgb->id, 'compte_id' => $c647->id, 'annee' => 2025],
                 ['montant_prevu' => 48_000_000],
             );
         }
 
-        if ($sgb && $c605) {
+        if ($sgb && $c605100) {
             BudgetPrevision::query()->updateOrCreate(
-                ['service_id' => $sgb->id, 'compte_id' => $c605->id, 'annee' => 2025],
+                ['service_id' => $sgb->id, 'compte_id' => $c605100->id, 'annee' => 2025],
                 ['montant_prevu' => 3_500_000],
             );
         }

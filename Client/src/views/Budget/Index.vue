@@ -29,37 +29,43 @@
       {{ error }}
     </v-alert>
 
+    <BudgetFilterBar
+      :services="services"
+      :comptes="comptes"
+      @update:filters="onFiltersChange"
+    />
+
     <section class="metric-grid">
       <article class="metric-card">
         <div class="metric-top">
           <span>Budget prévu</span>
           <v-icon>mdi-wallet-outline</v-icon>
         </div>
-        <strong>{{ formatMoney(totalPrevu) }}</strong>
-        <p>Prévisions annuelles enregistrées.</p>
+        <strong>{{ formatMoney(filteredTotalPrevu) }}</strong>
+        <p>Prévisions annuelles{{ hasActiveFilter ? ' (filtré)' : '' }}.</p>
       </article>
       <article class="metric-card metric-realise">
         <div class="metric-top">
           <span>Réalisé</span>
           <v-icon>mdi-cash-check</v-icon>
         </div>
-        <strong>{{ formatMoney(totalRealise) }}</strong>
-        <p>Dépenses réalisées sur l'année.</p>
+        <strong>{{ formatMoney(filteredTotalRealise) }}</strong>
+        <p>Dépenses réalisées{{ hasActiveFilter ? ' (filtré)' : '' }}.</p>
       </article>
-      <article class="metric-card" :class="ecartGlobal >= 0 ? 'metric-ok' : 'metric-alert'">
+      <article class="metric-card" :class="filteredEcart >= 0 ? 'metric-ok' : 'metric-alert'">
         <div class="metric-top">
           <span>Écart prévu - réalisé</span>
           <v-icon>mdi-chart-timeline-variant</v-icon>
         </div>
-        <strong>{{ formatMoney(ecartGlobal) }}</strong>
-        <p>{{ ecartGlobal >= 0 ? 'Marge disponible' : 'Dépassement global' }}.</p>
+        <strong>{{ formatMoney(filteredEcart) }}</strong>
+        <p>{{ filteredEcart >= 0 ? 'Marge disponible' : 'Dépassement global' }}.</p>
       </article>
       <article class="metric-card metric-rate">
         <div class="metric-top">
           <span>Taux d'exécution</span>
           <v-icon>mdi-percent-outline</v-icon>
         </div>
-        <strong>{{ tauxExecution }}%</strong>
+        <strong>{{ filteredTaux }}%</strong>
         <p>Réalisé rapporté au prévu.</p>
       </article>
     </section>
@@ -67,6 +73,7 @@
     <v-card class="budget-card rounded-lg" elevation="2">
       <v-tabs v-model="activeTab" color="primary" density="comfortable">
         <v-tab value="suivi">Suivi</v-tab>
+        <v-tab value="mensuel">Mensuel</v-tab>
         <v-tab value="prevision">Prévision</v-tab>
         <v-tab value="realisation">Réalisation</v-tab>
         <v-tab value="investissements">Investissements</v-tab>
@@ -77,12 +84,12 @@
           <v-card-title class="section-title">
             <div>
               <h2>Suivi par service et compte</h2>
-              <p>{{ budgetRows.length }} ligne(s) consolidée(s) pour {{ annee }}.</p>
+              <p>{{ filteredBudgetRows.length }} ligne(s) consolidée(s) pour {{ annee }}{{ hasActiveFilter ? ' (filtré)' : '' }}.</p>
             </div>
           </v-card-title>
           <v-data-table
             :headers="budgetHeaders"
-            :items="budgetRows"
+            :items="filteredBudgetRows"
             :loading="loading"
             :items-per-page="10"
             class="elevation-0"
@@ -93,10 +100,15 @@
               <strong>{{ item.service?.code || 'N/A' }}</strong>
               <div class="muted">{{ item.service?.intitule || '' }}</div>
             </template>
-            <template #item.compte="{ item }">
-              <strong>{{ item.compte?.numero || 'N/A' }}</strong>
-              <div class="muted">{{ item.compte?.intitule || '' }}</div>
-            </template>
+	            <template #item.compte="{ item }">
+	              <div class="account-cell" :class="{ 'is-child': item.niveau > 0 }">
+	                <strong>{{ item.compte?.numero || 'N/A' }}</strong>
+	                <v-chip v-if="item.is_regroupement" size="x-small" color="primary" variant="tonal">
+	                  Regroupement
+	                </v-chip>
+	              </div>
+	              <div class="muted">{{ item.compte?.intitule || '' }}</div>
+	            </template>
             <template #item.montant_prevu="{ item }">
               {{ formatMoney(item.montant_prevu) }}
             </template>
@@ -122,6 +134,22 @@
           </v-data-table>
         </v-window-item>
 
+        <v-window-item value="mensuel">
+          <v-card-title class="section-title">
+            <div>
+              <h2>Vue mensuelle</h2>
+              <p>Détail mois par mois des réalisations pour {{ annee }}{{ hasActiveFilter ? ' (filtré)' : '' }}.</p>
+            </div>
+          </v-card-title>
+          <div class="mensuel-container">
+            <BudgetMensuelTable
+              :rows="filteredMensuel"
+              :mois-debut="activeMoisDebut"
+              :mois-fin="activeMoisFin"
+            />
+          </div>
+        </v-window-item>
+
         <v-window-item value="prevision">
           <div class="form-panel">
             <div class="form-copy">
@@ -144,10 +172,10 @@
                   />
                 </v-col>
                 <v-col cols="12" md="4">
-                  <v-select
-                    v-model="previsionForm.compte_id"
-                    :items="comptes"
-                    :item-title="compteTitle"
+	                  <v-select
+	                    v-model="previsionForm.compte_id"
+	                    :items="comptesSaisissables"
+	                    :item-title="compteTitle"
                     item-value="id"
                     label="Compte"
                     variant="outlined"
@@ -207,9 +235,9 @@
                   />
                 </v-col>
                 <v-col cols="12" md="3">
-                  <v-select
-                    v-model="realisationForm.compte_id"
-                    :items="comptes"
+	                  <v-select
+	                    v-model="realisationForm.compte_id"
+	                    :items="comptesSaisissables"
                     :item-title="compteTitle"
                     item-value="id"
                     label="Compte"
@@ -416,14 +444,17 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useBudgetStore } from '@/stores/budget'
+import BudgetFilterBar from '@/components/budget/BudgetFilterBar.vue'
+import BudgetMensuelTable from '@/components/budget/BudgetMensuelTable.vue'
 
 const budgetStore = useBudgetStore()
 const {
   annee,
   previsions,
   services,
-  comptes,
-  investissements,
+	  comptes,
+	  comptesSaisissables,
+	  investissements,
   calculation,
   loading,
   loadingRefs,
@@ -435,8 +466,78 @@ const {
   totalRealise,
   ecartGlobal,
   tauxExecution,
-  budgetRows
+  budgetRows,
+  vuesMensuelles
 } = storeToRefs(budgetStore)
+
+// --- Filtres ---
+const filters = reactive({
+  serviceId: null,
+  compteId: null,
+  moisDebut: null,
+  moisFin: null
+})
+
+const onFiltersChange = (f) => {
+  filters.serviceId = f.serviceId
+  filters.compteId = f.compteId
+  filters.moisDebut = f.moisDebut
+  filters.moisFin = f.moisFin
+}
+
+const hasActiveFilter = computed(() =>
+  filters.serviceId != null ||
+  filters.compteId != null ||
+  filters.moisDebut != null ||
+  filters.moisFin != null
+)
+
+const activeMoisDebut = computed(() => filters.moisDebut ?? 1)
+const activeMoisFin = computed(() => filters.moisFin ?? 12)
+
+const applyServiceCompteFilter = (rows) => {
+  return rows.filter((row) => {
+    if (filters.serviceId != null && row.service_id !== filters.serviceId) return false
+    if (filters.compteId != null && row.compte_id !== filters.compteId) return false
+    return true
+  })
+}
+
+// Suivi table filtré
+const filteredBudgetRows = computed(() => applyServiceCompteFilter(budgetRows.value))
+
+// Vue mensuelle filtrée
+const filteredMensuel = computed(() => applyServiceCompteFilter(vuesMensuelles.value))
+
+const kpiMensuelRows = computed(() => {
+  if (filters.compteId != null) {
+    return filteredMensuel.value
+  }
+
+  return filteredMensuel.value.filter(row => !row.is_regroupement)
+})
+
+// KPIs filtrés
+const filteredTotalPrevu = computed(() =>
+  kpiMensuelRows.value.reduce((sum, row) => sum + (row.montant_prevu ?? 0), 0)
+)
+
+const filteredTotalRealise = computed(() => {
+  return kpiMensuelRows.value.reduce((sum, row) => {
+    let rowTotal = 0
+    for (let m = activeMoisDebut.value; m <= activeMoisFin.value; m++) {
+      rowTotal += row.mois?.[m] ?? 0
+    }
+    return sum + rowTotal
+  }, 0)
+})
+
+const filteredEcart = computed(() => filteredTotalPrevu.value - filteredTotalRealise.value)
+
+const filteredTaux = computed(() => {
+  if (!filteredTotalPrevu.value) return 0
+  return Math.round((filteredTotalRealise.value / filteredTotalPrevu.value) * 1000) / 10
+})
 
 const activeTab = ref('suivi')
 const selectedYear = ref(annee.value)
@@ -740,6 +841,16 @@ onMounted(async () => {
   font-size: 0.82rem;
 }
 
+.account-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.account-cell.is-child {
+  padding-left: 1rem;
+}
+
 .rate-cell {
   display: grid;
   grid-template-columns: 56px minmax(100px, 1fr);
@@ -847,5 +958,9 @@ onMounted(async () => {
   .flux-row > span {
     width: auto;
   }
+}
+
+.mensuel-container {
+  padding: 0 1rem 1rem;
 }
 </style>

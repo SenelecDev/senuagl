@@ -3,6 +3,7 @@
 namespace App\Models\Budget;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Compte extends Model
@@ -13,7 +14,24 @@ class Compte extends Model
     protected $fillable = [
         'numero',
         'intitule',
+        'parent_id',
     ];
+
+    /**
+     * @return BelongsTo<Compte, $this>
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Compte::class, 'parent_id');
+    }
+
+    /**
+     * @return HasMany<Compte, $this>
+     */
+    public function enfants(): HasMany
+    {
+        return $this->hasMany(Compte::class, 'parent_id');
+    }
 
     /**
      * @return HasMany<BudgetPrevision, $this>

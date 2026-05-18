@@ -179,4 +179,8 @@ export const testApi = {
   ping: () => apiClient.get('/test'),
 };
 
+export const calendrierApi = {
+  get: (params = {}) => apiClient.get('/calendrier-equipe', { params }),
+};
+
 export default apiClient;

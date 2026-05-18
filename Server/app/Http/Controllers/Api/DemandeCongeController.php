@@ -567,4 +567,124 @@ class DemandeCongeController extends Controller
     {
         return 'files/' . $file;
     }
+
+
+    public function calendrierEquipe(Request $request)
+{
+    $user = $request->user();
+ 
+    // Paramètres optionnels : mois et année (défaut = mois courant)
+    $annee = (int) $request->get('annee', now()->year);
+    $mois  = (int) $request->get('mois',  now()->month);
+ 
+    // Borne du mois demandé
+    $debutMois = \Carbon\Carbon::create($annee, $mois, 1)->startOfMonth();
+    $finMois   = \Carbon\Carbon::create($annee, $mois, 1)->endOfMonth();
+ 
+    // ---- Déterminer le périmètre selon le rôle ----
+    $query = \App\Models\DemandeConge::with(['user', 'user.department', 'user.role'])
+        ->whereIn('statut', ['approuve', 'en_attente'])
+        ->where(function ($q) use ($debutMois, $finMois) {
+            // Toute demande qui chevauche le mois affiché
+            $q->where('date_debut', '<=', $finMois)
+              ->where('date_fin',   '>=', $debutMois);
+        });
+ 
+    switch ($user->role->nom) {
+        case 'Superieur':
+            // Seulement les subordonnés directs
+            $ids = $user->subordinates()->pluck('id');
+            $query->whereIn('user_id', $ids);
+            break;
+ 
+        case 'Responsable RH':
+        case 'Directeur Unité':
+            // Tout le département
+            if ($user->department_id) {
+                $deptIds = \App\Models\User::where('department_id', $user->department_id)->pluck('id');
+                $query->whereIn('user_id', $deptIds);
+            }
+            break;
+ 
+        case 'Directeur RH':
+        case 'Admin':
+            // Filtre optionnel par département passé en query string
+            if ($request->filled('department_id')) {
+                $deptIds = \App\Models\User::where('department_id', $request->department_id)->pluck('id');
+                $query->whereIn('user_id', $deptIds);
+            }
+            // Sinon : tout le monde
+            break;
+ 
+        default:
+            // Employé simple : seulement ses propres congés
+            $query->where('user_id', $user->id);
+            break;
+    }
+ 
+    $demandes = $query->orderBy('date_debut')->get();
+ 
+    // ---- Construire la réponse par département ----
+    $parDepartement = [];
+ 
+    foreach ($demandes as $demande) {
+        $deptName = $demande->user->department?->name ?? 'Sans département';
+        $deptId   = $demande->user->department_id ?? 0;
+ 
+        if (!isset($parDepartement[$deptId])) {
+            $parDepartement[$deptId] = [
+                'department_id'   => $deptId,
+                'department_name' => $deptName,
+                'employes'        => [],
+            ];
+        }
+ 
+        $userId = $demande->user_id;
+ 
+        if (!isset($parDepartement[$deptId]['employes'][$userId])) {
+            $parDepartement[$deptId]['employes'][$userId] = [
+                'user_id'    => $userId,
+                'full_name'  => $demande->user->full_name,
+                'role'       => $demande->user->role?->nom ?? '',
+                'conges'     => [],
+            ];
+        }
+ 
+        $parDepartement[$deptId]['employes'][$userId]['conges'][] = [
+            'id'          => $demande->id,
+            'type'        => $demande->type_demande,
+            'type_label'  => $demande->type_label,
+            'date_debut'  => $demande->date_debut->format('Y-m-d'),
+            'date_fin'    => $demande->date_fin->format('Y-m-d'),
+            'duree_jours' => $demande->duree_jours,
+            'statut'      => $demande->statut,
+            'statut_label'=> $demande->statut_label,
+            'motif'       => $demande->motif,
+        ];
+    }
+ 
+    // Réindexer pour le frontend (arrays numériques)
+    $result = array_values(array_map(function ($dept) {
+        $dept['employes'] = array_values($dept['employes']);
+        return $dept;
+    }, $parDepartement));
+ 
+    // ---- Méta-données du mois pour le rendu du calendrier ----
+    $meta = [
+        'annee'         => $annee,
+        'mois'          => $mois,
+        'nb_jours'      => $debutMois->daysInMonth,
+        'premier_jour'  => (int) $debutMois->dayOfWeek, // 0=dim … 6=sam
+        'nom_mois'      => $debutMois->locale('fr')->translatedFormat('F Y'),
+    ];
+ 
+    return response()->json([
+        'success' => true,
+        'data'    => [
+            'meta'             => $meta,
+            'par_departement'  => $result,
+            'total_demandes'   => $demandes->count(),
+        ],
+    ]);
+}
 }

@@ -11,6 +11,8 @@ export default {
   name: "HistoriqueView",
   components: {
     HistoriqueConges,
+
+    
   },
 };
 </script>

@@ -134,104 +134,138 @@
         <i class="fas fa-chevron-right"></i>
       </button>
     </div>
+    <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Détails de la demande</h3>
+      <button @click="showModal = false" class="modal-close">✕</button>
+    </div>
+    <div class="modal-body" v-if="selectedConge">
+      <div class="detail-row"><span class="detail-label">Période :</span><span>{{ selectedConge.dateDebut }} → {{ selectedConge.dateFin }}</span></div>
+      <div class="detail-row"><span class="detail-label">Type :</span><span>{{ selectedConge.type }}</span></div>
+      <div class="detail-row"><span class="detail-label">Durée :</span><span>{{ selectedConge.duree }} jours</span></div>
+      <div class="detail-row"><span class="detail-label">Statut :</span><span :class="'status status-' + selectedConge.statutClass">{{ selectedConge.statut }}</span></div>
+      <div class="detail-row"><span class="detail-label">Date demande :</span><span>{{ selectedConge.dateDemande }}</span></div>
+    </div>
+    <div class="modal-footer">
+      <button @click="showModal = false" class="btn-fermer">Fermer</button>
+      <button v-if="selectedConge?.statutClass === 'approuve'" @click="telechargerAttestion(selectedConge)" class="btn-pdf">
+        <i class="fas fa-download"></i> Télécharger PDF
+      </button>
+    </div>
+  </div>
+</div>
   </div>
 </template>
 
 <script>
 import { useDemandesStore } from '@/stores/demandes';
 import { computed, onMounted, ref } from 'vue';
+import { demandesApi } from '@/services/api';
 
 export default {
   name: 'HistoriqueConges',
   setup() {
-  const demandesStore = useDemandesStore();
-  const filtreAnnee = ref('all');
-  const filtreType = ref('all');
-  const currentPage = ref(1);
-  const itemsPerPage = 5;
+    const demandesStore = useDemandesStore();
+    const filtreAnnee = ref('all');
+    const filtreType = ref('all');
+    const currentPage = ref(1);
+    const itemsPerPage = 5;
+    const selectedConge = ref(null);
+    const showModal = ref(false);
 
-  onMounted(async () => {
-    // Charger les deux sources pour avoir l'historique complet
-    await Promise.all([
-      demandesStore.fetchDemandes(),
-      demandesStore.fetchDemandesAValider(),
-    ]);
-  });
-
-  const toutesLesDemandes = computed(() => {
-    // Fusionner demandes propres + demandes à valider sans doublons
-    const ids = new Set();
-    const all = [];
-    [...demandesStore.demandes, ...demandesStore.demandesAValider].forEach(d => {
-      if (!ids.has(d.id)) {
-        ids.add(d.id);
-        all.push(d);
-      }
+    onMounted(async () => {
+      await Promise.all([
+        demandesStore.fetchDemandes(),
+        demandesStore.fetchDemandesAValider(),
+      ]);
     });
-    return all;
-  });
 
-  const congesFormates = computed(() =>
-    toutesLesDemandes.value.map((d) => ({
-      id: d.id,
-      dateDebut: new Date(d.date_debut).toLocaleDateString('fr-FR'),
-      dateFin: new Date(d.date_fin).toLocaleDateString('fr-FR'),
-      type: d.type_label || d.type_demande,
-      typeClass: d.type_demande?.replace('conge_', '').replace('_', '') || 'annuel',
-      duree: d.duree_jours,
-      statut: d.statut_label || d.statut,
-      statutClass: d.statut,
-      dateDemande: new Date(d.created_at).toLocaleDateString('fr-FR'),
-      annee: new Date(d.created_at).getFullYear().toString(),
-    }))
-  );
+    const toutesLesDemandes = computed(() => {
+      const ids = new Set();
+      const all = [];
+      [...demandesStore.demandes, ...demandesStore.demandesAValider].forEach(d => {
+        if (!ids.has(d.id)) { ids.add(d.id); all.push(d); }
+      });
+      return all;
+    });
 
-  const congesFiltres = computed(() => {
-    let filtered = congesFormates.value;
-    if (filtreAnnee.value !== 'all') {
-      filtered = filtered.filter(c => c.annee === filtreAnnee.value);
-    }
-    if (filtreType.value !== 'all') {
-      filtered = filtered.filter(c => c.typeClass === filtreType.value);
-    }
-    const start = (currentPage.value - 1) * itemsPerPage;
-    return filtered.slice(start, start + itemsPerPage);
-  });
+    const congesFormates = computed(() =>
+      toutesLesDemandes.value.map((d) => ({
+        id: d.id,
+        dateDebut: new Date(d.date_debut).toLocaleDateString('fr-FR'),
+        dateFin: new Date(d.date_fin).toLocaleDateString('fr-FR'),
+        type: d.type_label || d.type_demande,
+        typeClass: d.type_demande?.replace('conge_', '').replace('_', '') || 'annuel',
+        duree: d.duree_jours,
+        statut: d.statut_label || d.statut,
+        statutClass: d.statut,
+        dateDemande: new Date(d.created_at).toLocaleDateString('fr-FR'),
+        annee: new Date(d.created_at).getFullYear().toString(),
+      }))
+    );
 
-  const totalPages = computed(() => {
-    let filtered = congesFormates.value;
-    if (filtreAnnee.value !== 'all') filtered = filtered.filter(c => c.annee === filtreAnnee.value);
-    if (filtreType.value !== 'all') filtered = filtered.filter(c => c.typeClass === filtreType.value);
-    return Math.max(1, Math.ceil(filtered.length / itemsPerPage));
-  });
+    const congesFiltres = computed(() => {
+      let filtered = congesFormates.value;
+      if (filtreAnnee.value !== 'all') filtered = filtered.filter(c => c.annee === filtreAnnee.value);
+      if (filtreType.value !== 'all') filtered = filtered.filter(c => c.typeClass === filtreType.value);
+      const start = (currentPage.value - 1) * itemsPerPage;
+      return filtered.slice(start, start + itemsPerPage);
+    });
 
-  const getTypeIcon = (typeClass) => {
-    const icons = { annuel: 'fas fa-umbrella-beach', fractionnes: 'fas fa-calendar-week', autres_legaux: 'fas fa-gavel' };
-    return icons[typeClass] || 'fas fa-calendar';
-  };
+    const totalPages = computed(() => {
+      let filtered = congesFormates.value;
+      if (filtreAnnee.value !== 'all') filtered = filtered.filter(c => c.annee === filtreAnnee.value);
+      if (filtreType.value !== 'all') filtered = filtered.filter(c => c.typeClass === filtreType.value);
+      return Math.max(1, Math.ceil(filtered.length / itemsPerPage));
+    });
 
-  const getStatusIcon = (statutClass) => {
-    const icons = { approuve: 'fas fa-check-circle', en_attente: 'fas fa-clock', rejete: 'fas fa-times-circle' };
-    return icons[statutClass] || 'fas fa-info-circle';
-  };
+    const getTypeIcon = (typeClass) => {
+      const icons = { annuel: 'fas fa-umbrella-beach', fractionnes: 'fas fa-calendar-week', autres_legaux: 'fas fa-gavel' };
+      return icons[typeClass] || 'fas fa-calendar';
+    };
 
-  const voirDetails = (conge) => console.log('Détails:', conge);
-  const telechargerAttestion = (conge) => alert(`Attestation pour ${conge.dateDebut} - ${conge.dateFin}`);
+    const getStatusIcon = (statutClass) => {
+      const icons = { approuve: 'fas fa-check-circle', en_attente: 'fas fa-clock', rejete: 'fas fa-times-circle' };
+      return icons[statutClass] || 'fas fa-info-circle';
+    };
 
-  return {
-    filtreAnnee, filtreType, currentPage, totalPages,
-    congesFiltres, getTypeIcon, getStatusIcon,
-    voirDetails, telechargerAttestion,
-    loading: computed(() => demandesStore.loading),
-  };
-},
+    const voirDetails = (conge) => {
+      selectedConge.value = conge;
+      showModal.value = true;
+    };
+
+    const telechargerAttestion = async (conge) => {
+      try {
+        const response = await demandesApi.attestationPdf(conge.id);
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `attestation_conge_${conge.id}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        alert('Erreur lors du téléchargement du PDF');
+      }
+    };
+
+    return {
+      filtreAnnee, filtreType, currentPage, totalPages,
+      congesFiltres, getTypeIcon, getStatusIcon,
+      voirDetails, telechargerAttestion,
+      selectedConge, showModal,
+      loading: computed(() => demandesStore.loading),
+    };
+  },
+
   watch: {
     filtreAnnee() { this.currentPage = 1; },
     filtreType() { this.currentPage = 1; },
   },
 };
 </script>
-
 <style scoped>
 .historique-container {
   background-color: white;
@@ -480,6 +514,16 @@ export default {
   color: #666;
   font-size: 14px;
 }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.modal-content { background: white; border-radius: 16px; padding: 30px; width: 90%; max-width: 500px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px; }
+.modal-header h3 { color: #261555; margin: 0; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #666; }
+.detail-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f5f5f5; }
+.detail-label { font-weight: 600; color: #666; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.btn-fermer { padding: 10px 20px; border: 2px solid #e0e0e0; background: white; border-radius: 8px; cursor: pointer; }
+.btn-pdf { padding: 10px 20px; background: #008a9b; color: white; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
 
 @media (max-width: 768px) {
   .historique-container {
@@ -498,6 +542,9 @@ export default {
   .filter-item {
     width: 100%;
   }
+
+
+
 
   .historique-table th,
   .historique-table td {

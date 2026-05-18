@@ -24,6 +24,7 @@ import LogsView from "../views/admin/LogsView.vue";
 import SettingsView from "../views/admin/SettingsView.vue";
 import LeavePlanningView from "../views/admin/LeavePlanningView.vue";
 import DemandesHistoryView from "../views/admin/DemandesHistoryView.vue";
+import CalendrierEquipeView from "../views/dashboard/CalendrierEquipeView.vue";
 
 const routes = [
   {
@@ -157,6 +158,14 @@ const routes = [
         component: FormulaireAbsenceView,
         meta: { title: "Demande d'Absence - Supérieur" },
       },
+      {
+        path: "calendrier-equipe",
+        name: "superieurCalendrierEquipe",
+        component: CalendrierEquipeView,
+        meta: { title: "Calendrier des Congés - Supérieur" },
+      },
+
+      
     ],
   },
   {
@@ -227,6 +236,12 @@ const routes = [
         component: FormulaireAbsenceView,
         meta: { title: "Demande d'Absence - Directeur d'Unité" },
       },
+      {
+        path: "calendrier-equipe",
+        name: "directeurUniteCalendrierEquipe",
+        component: CalendrierEquipeView,
+        meta: { title: "Calendrier des Congés - Directeur d'Unité" },
+      },
     ],
   },
   {
@@ -296,6 +311,12 @@ const routes = [
         name: "responsableRHFormulaireAbsence",
         component: FormulaireAbsenceView,
         meta: { title: "Demande d'Absence - Responsable RH" },
+      }, 
+      {
+        path: "calendrier-equipe",
+        name: "responsableRHCalendrierEquipe",
+        component: CalendrierEquipeView,
+        meta: { title: "Calendrier des Congés - Responsable RH" },
       },
     ],
   },
@@ -372,6 +393,12 @@ const routes = [
         name: "directeurRHFormulaireAbsence",
         component: FormulaireAbsenceView,
         meta: { title: "Demande d'Absence - Directeur RH" },
+      },
+      {
+        path: "calendrier-equipe",
+        name: "directeurRHCalendrierEquipe",
+        component: CalendrierEquipeView,
+        meta: { title: "Calendrier des Congés - Directeur RH" },
       },
     ],
   },

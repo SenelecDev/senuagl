@@ -86,6 +86,16 @@
           <i class="fas fa-check-circle"></i>
           <span>Validation</span>
         </router-link>
+
+        <!-- ✅ CALENDRIER ÉQUIPE — visible pour tous les rôles validateurs -->
+        <router-link
+          :to="{ name: `${rolePrefix}CalendrierEquipe` }"
+          class="nav-item"
+          active-class="active"
+        >
+          <i class="fas fa-calendar-alt"></i>
+          <span>Calendrier Équipe</span>
+        </router-link>
       </div>
 
       <!-- Section Administration (uniquement pour le Directeur RH) -->
@@ -339,12 +349,12 @@ export default {
 
 .nav-item:hover {
   color: white;
-  background-color: rgba(38, 21, 85, 0.8); /* Couleur mauve SENELEC */
+  background-color: rgba(38, 21, 85, 0.8);
 }
 
 .nav-item.active {
   color: white;
-  background-color: #261555; /* Couleur mauve SENELEC */
+  background-color: #261555;
   font-weight: 600;
 }
 
@@ -359,7 +369,6 @@ export default {
   border-radius: 0 4px 4px 0;
 }
 
-/* Ajustement pour les icônes quand le texte est sur deux lignes */
 .nav-item.active i,
 .nav-item:hover i {
   color: white;

@@ -20,6 +20,8 @@ export const useCongesStore = defineStore('conges', {
     historiqueConges: [],
     loading: false,
     error: null,
+    lastStatsFetch: null,
+    statsRequest: null,
   }),
 
   getters: {
@@ -41,9 +43,18 @@ export const useCongesStore = defineStore('conges', {
 
   actions: {
     async fetchStats() {
+      const now = Date.now();
+      if (this.statsRequest) {
+        return this.statsRequest;
+      }
+      if (this.lastStatsFetch && now - this.lastStatsFetch < 60000) {
+        return;
+      }
+
       this.loading = true;
       this.error = null;
       try {
+        this.statsRequest = this.statsRequest || (async () => {
         // Charger les stats dashboard ET toutes les demandes en parallèle
         const [statsResponse, demandesResponse] = await Promise.all([
           dashboardApi.stats(),
@@ -60,11 +71,16 @@ export const useCongesStore = defineStore('conges', {
           const demandes = demandesResponse.data.data.data || [];
           this._calculerSoldes(demandes);
         }
+        this.lastStatsFetch = Date.now();
+        })();
+
+        await this.statsRequest;
       } catch (error) {
         this.error = error.message;
         console.error('Erreur fetchStats:', error);
       } finally {
         this.loading = false;
+        this.statsRequest = null;
       }
     },
 
@@ -125,6 +141,8 @@ export const useCongesStore = defineStore('conges', {
       this.stats = { conges_restants: 0, conges_pris: 0, demandes_en_attente: 0, demandes_approuvees: 0, demandes_rejetees: 0 };
       this.prochainsConges = [];
       this.historiqueConges = [];
+      this.lastStatsFetch = null;
+      this.statsRequest = null;
       this.soldeConges = {
         congesAnnuel:     { acquis: 0, pris: 0, reste: 0, pourcentage: 0 },
         congesFractionnes:{ acquis: 0, pris: 0, reste: 0, pourcentage: 0 },

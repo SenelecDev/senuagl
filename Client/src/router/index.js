@@ -1,31 +1,32 @@
 import { createRouter, createWebHistory } from "vue-router";
-import LoginView from "../views/LoginView.vue";
-import EmployeDashboard from "../views/EmployeDashboard.vue";
-import SuperieurDashboard from "../views/SuperieurDashboard.vue";
-import DirecteurUniteDashboard from "../views/DirecteurUniteDashboard.vue";
-import ResponsableRHDashboard from "../views/ResponsableRHDashboard.vue";
-import DirecteurRHDashboard from "../views/DirecteurRHDashboard.vue";
-import GestionDemandesView from "../views/dashboard/GestionDemandesView.vue";
-import EtatDemandesView from "../views/dashboard/EtatDemandesView.vue";
-import SoldeView from "../views/dashboard/SoldeView.vue";
-import HistoriqueView from "../views/dashboard/HistoriqueView.vue";
-import DashboardHomeView from "../views/dashboard/DashboardHomeView.vue";
-import DemandesEnAttenteView from "../views/dashboard/DemandesEnAttenteView.vue";
-import ValidationDemandesView from "../views/dashboard/ValidationDemandesView.vue";
-import DocumentsAdministratifsView from "../views/dashboard/DocumentsAdministratifsView.vue";
-import FormulairePlanificationView from "../views/dashboard/FormulairePlanificationView.vue";
-import FormulaireReportView from "../views/dashboard/FormulaireReportView.vue";
-import FormulaireAbsenceView from "../views/dashboard/FormulaireAbsenceView.vue";
-import AdminDashboard from "../views/AdminDashboard.vue";
-import AdminHomeView from "../views/admin/AdminHomeView.vue";
-import UserManagementView from "../views/admin/UserManagementView.vue";
-import DepartmentManagementView from "../views/admin/DepartmentManagementView.vue";
-import LogsView from "../views/admin/LogsView.vue";
-import SettingsView from "../views/admin/SettingsView.vue";
-import LeavePlanningView from "../views/admin/LeavePlanningView.vue";
-import DemandesHistoryView from "../views/admin/DemandesHistoryView.vue";
-import CalendrierEquipeView from "../views/dashboard/CalendrierEquipeView.vue";
 
+const LoginView = () => import("../views/LoginView.vue");
+const EmployeDashboard = () => import("../views/EmployeDashboard.vue");
+const SuperieurDashboard = () => import("../views/SuperieurDashboard.vue");
+const DirecteurUniteDashboard = () => import("../views/DirecteurUniteDashboard.vue");
+const ResponsableRHDashboard = () => import("../views/ResponsableRHDashboard.vue");
+const DirecteurRHDashboard = () => import("../views/DirecteurRHDashboard.vue");
+const GestionDemandesView = () => import("../views/dashboard/GestionDemandesView.vue");
+const EtatDemandesView = () => import("../views/dashboard/EtatDemandesView.vue");
+const SoldeView = () => import("../views/dashboard/SoldeView.vue");
+const HistoriqueView = () => import("../views/dashboard/HistoriqueView.vue");
+const DashboardHomeView = () => import("../views/dashboard/DashboardHomeView.vue");
+const DemandesEnAttenteView = () => import("../views/dashboard/DemandesEnAttenteView.vue");
+const ValidationDemandesView = () => import("../views/dashboard/ValidationDemandesView.vue");
+const DocumentsAdministratifsView = () => import("../views/dashboard/DocumentsAdministratifsView.vue");
+const FormulairePlanificationView = () => import("../views/dashboard/FormulairePlanificationView.vue");
+const FormulaireReportView = () => import("../views/dashboard/FormulaireReportView.vue");
+const FormulaireAbsenceView = () => import("../views/dashboard/FormulaireAbsenceView.vue");
+const AdminDashboard = () => import("../views/AdminDashboard.vue");
+const AdminHomeView = () => import("../views/admin/AdminHomeView.vue");
+const UserManagementView = () => import("../views/admin/UserManagementView.vue");
+const DepartmentManagementView = () => import("../views/admin/DepartmentManagementView.vue");
+const LogsView = () => import("../views/admin/LogsView.vue");
+const SettingsView = () => import("../views/admin/SettingsView.vue");
+const LeavePlanningView = () => import("../views/admin/LeavePlanningView.vue");
+const DemandesHistoryView = () => import("../views/admin/DemandesHistoryView.vue");
+const CalendrierEquipeView = () => import("../views/dashboard/CalendrierEquipeView.vue");
+const AnalytiqueView = () => import("../views/dashboard/AnalytiqueView.vue");
 const routes = [
   {
     path: "/",
@@ -165,7 +166,12 @@ const routes = [
         meta: { title: "Calendrier des Congés - Supérieur" },
       },
 
-      
+      {
+        path: "analytique",
+        name: "superieurAnalytique",
+        component: AnalytiqueView,
+        meta: { title: "Tableau de Bord Analytique - Supérieur" },
+      },
     ],
   },
   {
@@ -242,6 +248,12 @@ const routes = [
         component: CalendrierEquipeView,
         meta: { title: "Calendrier des Congés - Directeur d'Unité" },
       },
+      {
+        path: "analytique",
+        name: "directeurUniteAnalytique",
+        component: AnalytiqueView,
+        meta: { title: "Tableau de Bord Analytique - Directeur Unité" },
+      },
     ],
   },
   {
@@ -317,6 +329,12 @@ const routes = [
         name: "responsableRHCalendrierEquipe",
         component: CalendrierEquipeView,
         meta: { title: "Calendrier des Congés - Responsable RH" },
+      },
+      {
+        path: "analytique",
+        name: "responsableRHAnalytique",
+        component: AnalytiqueView,
+        meta: { title: "Tableau de Bord Analytique - Responsable RH" },
       },
     ],
   },
@@ -399,6 +417,12 @@ const routes = [
         name: "directeurRHCalendrierEquipe",
         component: CalendrierEquipeView,
         meta: { title: "Calendrier des Congés - Directeur RH" },
+      },
+      {
+        path: "analytique",
+        name: "directeurRHAnalytique",
+        component: AnalytiqueView,
+        meta: { title: "Tableau de Bord Analytique" },
       },
     ],
   },

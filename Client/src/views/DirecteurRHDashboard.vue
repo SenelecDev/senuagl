@@ -73,7 +73,8 @@ export default {
         return "Documents Administratifs";
       if (routePath.includes("/settings"))
         return "Paramètres";
-
+      if (routePath.includes("/analytique"))
+       return "Tableau de Bord Analytique";
       return "Tableau de bord";
     },
   },

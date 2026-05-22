@@ -8,7 +8,9 @@ export const useNotificationsStore = defineStore('notifications', {
     maxNotifications: 5,
     globalNotifications: [],
     channelName: null,
-    isLoading: false
+    isLoading: false,
+    lastFetch: null,
+    fetchRequest: null
   }),
 
   getters: {
@@ -89,15 +91,22 @@ export const useNotificationsStore = defineStore('notifications', {
     },
 
     async fetchNotifications() {
+      const now = Date.now()
+      if (this.fetchRequest) return this.fetchRequest
+      if (this.lastFetch && now - this.lastFetch < 60000) return
+
       this.isLoading = true
+      this.fetchRequest = notificationsApi.list({ per_page: 20 })
       try {
-        const response = await notificationsApi.list({ per_page: 20 })
+        const response = await this.fetchRequest
         const rows = response?.data?.data?.data || response?.data?.data || []
         this.globalNotifications = rows.map((row) => this.normalizeNotification(row))
+        this.lastFetch = Date.now()
       } catch (error) {
         console.error('Erreur lors du chargement des notifications:', error)
       } finally {
         this.isLoading = false
+        this.fetchRequest = null
       }
     },
 

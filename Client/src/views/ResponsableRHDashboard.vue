@@ -63,7 +63,7 @@ export default {
       if (routePath.includes("/demandes-en-attente"))
         return "Liste des demandes";
       if (routePath.includes("/settings")) return "Paramètres";
-
+      if (routePath.includes("/analytique")) return "Tableau de Bord Analytique";
       return "Tableau de bord";
     },
     shouldShowHeader() {

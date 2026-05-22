@@ -64,7 +64,7 @@
 </template>
 
 <script>
-import { useUserStore } from '@/stores/users';
+import { useUsersStore } from '@/stores/auth';
 
 export default {
   name: "SidebarEmploye",
@@ -75,31 +75,28 @@ export default {
     },
   },
   emits: ["toggle-sidebar"],
-  setup() {
-    const userStore = useUserStore();
-    return { userStore };
-  },
+
   computed: {
     user() {
-      return this.userStore.user || {
-        nom: "Utilisateur",
-        prenom: "Inconnu",
-        fonction: "Employé",
+      const store = useUsersStore();
+      const u = store.currentUser;
+      const stored = u || JSON.parse(localStorage.getItem('user') || '{}');
+      return {
+        nom:      stored?.name       ?? '',
+        prenom:   stored?.first_name ?? '',
+        fonction: stored?.department?.name ?? '',
       };
     },
     userInitials() {
-      return this.user.first_name?.charAt(0) + this.user.name?.charAt(0) || 'UI';
+      return (this.user.prenom.charAt(0) + this.user.nom.charAt(0)).toUpperCase();
     },
   },
+
   methods: {
     async logout() {
-      try {
-        await this.userStore.logout();
-      } catch (error) {
-        console.error('Erreur lors de la déconnexion:', error);
-      } finally {
-        this.$router.push("/");
-      }
+      const store = useUsersStore();
+      await store.logout();
+      this.$router.push("/");
     },
   },
 };

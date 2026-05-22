@@ -87,7 +87,7 @@
           <span>Validation</span>
         </router-link>
 
-        <!-- ✅ CALENDRIER ÉQUIPE — visible pour tous les rôles validateurs -->
+        <!-- ✅ CALENDRIER ÉQUIPE -->
         <router-link
           :to="{ name: `${rolePrefix}CalendrierEquipe` }"
           class="nav-item"
@@ -96,7 +96,18 @@
           <i class="fas fa-calendar-alt"></i>
           <span>Calendrier Équipe</span>
         </router-link>
+
+        <!-- ✅ ANALYTIQUE -->
+        <router-link
+          :to="{ name: `${rolePrefix}Analytique` }"
+          class="nav-item"
+          active-class="active"
+        >
+          <i class="fas fa-chart-line"></i>
+          <span>Analytique</span>
+        </router-link>
       </div>
+
 
       <!-- Section Administration (uniquement pour le Directeur RH) -->
       <div v-if="role === 'Directeur RH'" class="nav-section">
@@ -118,6 +129,8 @@
 </template>
 
 <script>
+import { useUsersStore } from '@/stores/auth';
+
 export default {
   name: "SidebarSuperieur",
   props: {
@@ -131,42 +144,45 @@ export default {
     }
   },
   emits: ["toggle-sidebar"],
-  data() {
-    return {
-      user: {
-        nom: "Diop",
-        prenom: "Mansour",
-        fonction: "Chef de Service",
-      },
-      demandesEnAttente: 3,
-    };
-  },
+
   computed: {
+     user() {
+  const store = useUsersStore();
+  const u = store.currentUser;
+  
+  // Fallback sur localStorage si le store n'est pas encore chargé
+  const stored = u || JSON.parse(localStorage.getItem('user') || '{}');
+  
+  return {
+    nom:      stored?.name        ?? '',
+    prenom:   stored?.first_name  ?? '',
+    fonction: stored?.department?.name ?? stored?.role?.name ?? '',
+  };
+},
+
     userInitials() {
-      return this.user.prenom.charAt(0) + this.user.nom.charAt(0);
+      return (this.user.prenom.charAt(0) + this.user.nom.charAt(0)).toUpperCase();
     },
+
     rolePrefix() {
       switch (this.role) {
-        case "Directeur d'Unité":
-          return "directeurUnite";
-        case "Responsable RH":
-          return "responsableRH";
-        case "Directeur RH":
-          return "directeurRH";
-        default:
-          return "superieur";
+        case "Directeur d'Unité": return "directeurUnite";
+        case "Responsable RH":    return "responsableRH";
+        case "Directeur RH":      return "directeurRH";
+        default:                  return "superieur";
       }
     }
   },
+
   methods: {
     logout() {
-      localStorage.removeItem("user");
+      const store = useUsersStore();
+      store.logout();
       this.$router.push("/");
     },
   },
 };
 </script>
-
 <style scoped>
 .sidebar {
   width: 250px;

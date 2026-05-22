@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\DepartmentController;
 //use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\PlanningController;
+use App\Http\Controllers\Api\AnalytiqueController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -34,6 +35,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/refresh', [AuthController::class, 'refresh']);
     Route::get('/calendrier-equipe', [DemandeCongeController::class, 'calendrierEquipe']);
+    Route::get('/analytique', [AnalytiqueController::class, 'index']);
     // Dashboard routes
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
     Route::get('/dashboard/recent-activity', [DashboardController::class, 'recentActivity']);

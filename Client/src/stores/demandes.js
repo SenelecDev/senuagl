@@ -8,6 +8,10 @@ export const useDemandesStore = defineStore('demandes', {
     loading: false,
     error: null,
     currentDemande: null,
+    lastFetchDemandes: null,
+    lastFetchDemandesAValider: null,
+    demandesRequest: null,
+    demandesAValiderRequest: null,
   }),
 
   getters: {
@@ -47,14 +51,27 @@ export const useDemandesStore = defineStore('demandes', {
 
   actions: {
     async fetchDemandes(params = {}) {
+      const hasFilters = Object.keys(params).length > 0;
+      const now = Date.now();
+      if (!hasFilters && this.demandesRequest) {
+        return this.demandesRequest;
+      }
+      if (!hasFilters && this.lastFetchDemandes && now - this.lastFetchDemandes < 60000) {
+        return;
+      }
+
       this.loading = true;
       this.error = null;
 
       try {
-        const response = await demandesApi.list(params);
+        this.demandesRequest = !hasFilters ? this.demandesRequest || demandesApi.list(params) : null;
+        const response = hasFilters ? await demandesApi.list(params) : await this.demandesRequest;
         
         if (response.data.success) {
           this.demandes = response.data.data.data || [];
+          if (!hasFilters) {
+            this.lastFetchDemandes = Date.now();
+          }
         } else {
           this.error = response.data.message || 'Erreur lors du chargement des demandes';
         }
@@ -63,18 +80,38 @@ export const useDemandesStore = defineStore('demandes', {
         console.error('Erreur fetchDemandes:', error);
       } finally {
         this.loading = false;
+        if (!hasFilters) {
+          this.demandesRequest = null;
+        }
       }
     },
 
     async fetchDemandesAValider(params = {}) {
+      const hasFilters = Object.keys(params).length > 0;
+      const now = Date.now();
+      if (!hasFilters && this.demandesAValiderRequest) {
+        return this.demandesAValiderRequest;
+      }
+      if (!hasFilters && this.lastFetchDemandesAValider && now - this.lastFetchDemandesAValider < 60000) {
+        return;
+      }
+
       this.loading = true;
       this.error = null;
 
       try {
-        const response = await demandesApi.demandesAValider(params);
+        this.demandesAValiderRequest = !hasFilters
+          ? this.demandesAValiderRequest || demandesApi.demandesAValider(params)
+          : null;
+        const response = hasFilters
+          ? await demandesApi.demandesAValider(params)
+          : await this.demandesAValiderRequest;
         
         if (response.data.success) {
           this.demandesAValider = response.data.data.data || [];
+          if (!hasFilters) {
+            this.lastFetchDemandesAValider = Date.now();
+          }
         } else {
           this.error = response.data.message || 'Erreur lors du chargement des demandes à valider';
         }
@@ -83,6 +120,9 @@ export const useDemandesStore = defineStore('demandes', {
         console.error('Erreur fetchDemandesAValider:', error);
       } finally {
         this.loading = false;
+        if (!hasFilters) {
+          this.demandesAValiderRequest = null;
+        }
       }
     },
 
@@ -95,6 +135,7 @@ export const useDemandesStore = defineStore('demandes', {
         
         if (response.data.success) {
           this.demandes.unshift(response.data.data);
+          this.lastFetchDemandes = null;
           return { success: true, data: response.data.data };
         } else {
           this.error = response.data.message || 'Erreur lors de la création de la demande';
@@ -121,6 +162,7 @@ export const useDemandesStore = defineStore('demandes', {
           if (index !== -1) {
             this.demandes[index] = response.data.data;
           }
+          this.lastFetchDemandes = null;
           return { success: true, data: response.data.data };
         } else {
           this.error = response.data.message || 'Erreur lors de la mise à jour de la demande';
@@ -144,6 +186,7 @@ export const useDemandesStore = defineStore('demandes', {
         
         if (response.data.success) {
           this.demandes = this.demandes.filter(d => d.id !== demandeId);
+          this.lastFetchDemandes = null;
           return { success: true };
         } else {
           this.error = response.data.message || 'Erreur lors de la suppression de la demande';
@@ -180,6 +223,8 @@ export const useDemandesStore = defineStore('demandes', {
           updateDemande(this.demandes);
           updateDemande(this.demandesAValider);
 
+          this.lastFetchDemandes = null;
+          this.lastFetchDemandesAValider = null;
           await this.fetchDemandesAValider();
           return { success: true, data: response.data.data };
         } else {
@@ -233,6 +278,10 @@ export const useDemandesStore = defineStore('demandes', {
       this.currentDemande = null;
       this.error = null;
       this.loading = false;
+      this.lastFetchDemandes = null;
+      this.lastFetchDemandesAValider = null;
+      this.demandesRequest = null;
+      this.demandesAValiderRequest = null;
     },
   },
 });

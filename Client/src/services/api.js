@@ -5,7 +5,11 @@ import axios from 'axios';
 // En developpement, on cible directement nginx Docker pour eviter les
 // problemes intermittents de proxy/localhost sous Windows.
 const API_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
-console.log('🌐 API base URL active:', API_URL);
+const API_DEBUG = import.meta.env.VITE_API_DEBUG === 'true';
+
+if (API_DEBUG) {
+  console.log('API base URL active:', API_URL);
+}
 
 // Configuration de base d'Axios avec plus de robustesse
 const apiClient = axios.create({
@@ -22,8 +26,10 @@ const apiClient = axios.create({
 // Intercepteur pour ajouter le token d'authentification
 apiClient.interceptors.request.use(
   (config) => {
-    console.log('🚀 Requête API:', config.method.toUpperCase(), config.url);
-    console.log('📦 Données envoyées:', config.data);
+    if (API_DEBUG) {
+      console.log('Requete API:', config.method.toUpperCase(), config.url);
+      console.log('Donnees envoyees:', config.data);
+    }
 
     const token = localStorage.getItem('auth_token');
     if (token) {
@@ -40,8 +46,10 @@ apiClient.interceptors.request.use(
 // Intercepteur pour gérer les réponses et les erreurs
 apiClient.interceptors.response.use(
   (response) => {
-    console.log('✅ Réponse reçue:', response.status, response.config.url);
-    console.log('📋 Données reçues:', response.data);
+    if (API_DEBUG) {
+      console.log('Reponse recue:', response.status, response.config.url);
+      console.log('Donnees recues:', response.data);
+    }
     return response;
   },
   (error) => {

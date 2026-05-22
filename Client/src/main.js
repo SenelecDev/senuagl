@@ -81,7 +81,9 @@ const userStore = useUserStore();
 userStore.initializeAuth().then(() => {
   const notificationsStore = useNotificationsStore();
   if (userStore.isAuthenticated) {
-    notificationsStore.fetchNotifications();
-    notificationsStore.initRealtimeNotifications();
+    window.setTimeout(() => {
+      notificationsStore.fetchNotifications();
+      notificationsStore.initRealtimeNotifications();
+    }, 500);
   }
 });

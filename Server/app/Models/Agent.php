@@ -62,6 +62,21 @@ class Agent extends Model
         return $this->hasMany(Avancement::class, 'matricule_agent', 'matricule')
                     ->whereNotNull('id_nr_nouveau');
     }
+
+    public function notes()
+    {
+        return $this->hasMany(NoteAppreciation::class, 'matricule_agent', 'matricule');
+    }
+
+    public function dernierePromotionGF()
+    {
+        return $this->promotionsGF()->orderBy('date', 'desc')->first();
+    }
+
+    public function dernierAvancementNR()
+    {
+        return $this->changementsNR()->orderBy('date', 'desc')->first();
+    }
     
     // Accesseurs
     public function getAgeAttribute()
@@ -76,9 +91,10 @@ class Agent extends Model
     
     public function getEstPlafonneAttribute()
     {
-        if (!$this->poste || !$this->gfActuel) return false;
+        if (!$this->poste || !$this->gfActuel || !$this->poste->tube_max) return false;
         
         $tubeMax = GF::find($this->poste->tube_max);
+        if (!$tubeMax) return false;
         return $this->gfActuel->ordre >= $tubeMax->ordre;
     }
     
@@ -100,9 +116,10 @@ class Agent extends Model
     
     public function peutEtrePromuGf()
     {
-        if (!$this->poste || !$this->gfActuel) return false;
+        if (!$this->poste || !$this->gfActuel || !$this->poste->tube_max) return false;
         
         $tubeMax = GF::find($this->poste->tube_max);
+        if (!$tubeMax) return false;
         return $this->gfActuel->ordre < $tubeMax->ordre;
     }
 }

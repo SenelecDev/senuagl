@@ -88,6 +88,14 @@ class AvancementController extends Controller
             return response()->json(['error' => 'Au moins un changement (GF ou NR) doit être spécifié.'], 422);
         }
 
+        // Un agent ne peut être à la fois promu GF et avancé NR la même année.
+        if (!empty($validated['id_gf_nouveau']) && !empty($validated['id_nr_nouveau'])) {
+            return response()->json(['error' => 'Un agent ne peut pas recevoir à la fois une promotion GF et un avancement NR la même année.'], 422);
+        }
+
+        $annee = \Carbon\Carbon::parse($validated['date'])->year;
+        $eligibilityService = app(\App\Services\PromotionEligibilityService::class);
+
         // Règles pour le GF
         if (!empty($validated['id_gf_nouveau'])) {
             // Ancien GF obligatoire si nouveau GF fourni
@@ -109,6 +117,19 @@ class AvancementController extends Controller
             if ($gfNouveau->ordre > $tubeMax->ordre) {
                 return response()->json(['error' => 'Le nouveau GF dépasse le plafond autorisé pour ce poste (max ' . $tubeMax->id_gf . ').'], 422);
             }
+
+            // Vérifier la note d'appréciation
+            $note = \App\Models\NoteAppreciation::where('matricule_agent', $agent->matricule)
+                ->where('annee', $annee)
+                ->first();
+            if (!$note || $note->note <= 75) {
+                return response()->json(['error' => 'L\'agent n\'a pas une note d\'appréciation suffisante (> 75) pour l\'année ' . $annee . '.'], 422);
+            }
+
+            // Vérifier l'éligibilité
+            if (!$eligibilityService->estEligiblePromotionGF($agent, $annee)) {
+                return response()->json(['error' => 'L\'agent n\'est pas éligible à une promotion GF pour l\'année ' . $annee . ' (délai de carence de 3 ans non respecté, agent plafonné ou déjà promu/avancé cette année).'], 422);
+            }
         }
 
         // Règles pour le NR
@@ -122,6 +143,19 @@ class AvancementController extends Controller
 
             if ($nrNouveau->ordre <= $nrAncien->ordre) {
                 return response()->json(['error' => 'Le nouveau NR doit être supérieur à l\'ancien.'], 422);
+            }
+
+            // Vérifier la note d'appréciation
+            $note = \App\Models\NoteAppreciation::where('matricule_agent', $agent->matricule)
+                ->where('annee', $annee)
+                ->first();
+            if (!$note || $note->note <= 50) {
+                return response()->json(['error' => 'L\'agent n\'a pas une note d\'appréciation suffisante (> 50) pour l\'année ' . $annee . '.'], 422);
+            }
+
+            // Vérifier l'éligibilité
+            if (!$eligibilityService->estEligibleAvancementNR($agent, $annee)) {
+                return response()->json(['error' => 'L\'agent n\'est pas éligible à un avancement NR pour l\'année ' . $annee . ' (délai de carence de 2 ans non respecté ou déjà promu/avancé cette année).'], 422);
             }
         }
 

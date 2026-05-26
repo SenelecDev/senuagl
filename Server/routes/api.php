@@ -6,7 +6,9 @@ use App\Http\Controllers\Api\AvancementController;
 use App\Http\Controllers\Api\BudgetController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\InvestissementController;
+use App\Http\Controllers\Api\NoteAppreciationController;
 use App\Http\Controllers\Api\PosteController;
+use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\StatistiqueController;
 use App\Http\Controllers\Api\UniteController;
 use App\Models\GF;
@@ -59,10 +61,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('statistiques/repartition-hf-par-service', [StatistiqueController::class, 'repartitionHFParService']);
     Route::get('statistiques/departs-retraite', [StatistiqueController::class, 'departsRetraite']);
     Route::get('statistiques/plafonnement-anomalies', [StatistiqueController::class, 'plafonnementAnomalies']);
-    Route::get('statistiques/agents-bloques', [StatistiqueController::class, 'agentsBloques']);
+    Route::get('statistiques/agents-plafonnes', [StatistiqueController::class, 'agentsPlafonnes']);
+
+    // Promotions & Avancements (routes spéciales AVANT apiResource)
+    Route::get('promotions/liste-priorite-gf', [PromotionController::class, 'listePrioriteGFTous']);
+    Route::get('avancements/liste-priorite-nr', [PromotionController::class, 'listePrioriteNRTous']);
+    Route::get('promotions/liste-priorite-gf/{directionId}/{annee}', [PromotionController::class, 'listePrioriteGF']);
+    Route::get('avancements/liste-priorite-nr/{directionId}/{annee}', [PromotionController::class, 'listePrioriteNR']);
+    Route::post('promotions/promouvoir', [PromotionController::class, 'promouvoir']);
+    Route::post('avancements/avancer', [PromotionController::class, 'avancer']);
 
     // Avancements
     Route::apiResource('avancements', AvancementController::class);
+
+    // Notes d'appréciation
+    Route::apiResource('notes-appreciation', NoteAppreciationController::class);
+    Route::get('notes-appreciation/agent/{matricule}', [NoteAppreciationController::class, 'getByAgent']);
+    Route::get('notes-appreciation/annee/{annee}', [NoteAppreciationController::class, 'getByAnnee']);
 
     // Dashboard
     Route::get('/dashboard/kpi', [DashboardController::class, 'kpi']);

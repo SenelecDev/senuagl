@@ -57,7 +57,7 @@
             <v-select
               v-model="filters.gf"
               :items="gfs"
-              item-title="ordre"
+              item-title="id_gf"
               item-value="id_gf"
               label="GF"
               variant="outlined"
@@ -234,11 +234,11 @@
                 </v-list-item>
                 <v-list-item>
                   <v-list-item-title>GF Actuel</v-list-item-title>
-                  <v-list-item-subtitle>{{ selectedAgent.gf_actuel?.ordre || 'N/A' }}</v-list-item-subtitle>
+                  <v-list-item-subtitle>{{ selectedAgent.gf_actuel?.id_gf || 'N/A' }}</v-list-item-subtitle>
                 </v-list-item>
                 <v-list-item>
                   <v-list-item-title>NR Actuel</v-list-item-title>
-                  <v-list-item-subtitle>{{ selectedAgent.nr_actuel?.ordre || 'N/A' }}</v-list-item-subtitle>
+                  <v-list-item-subtitle>{{ selectedAgent.nr_actuel?.id_nr || 'N/A' }}</v-list-item-subtitle>
                 </v-list-item>
                 <v-list-item>
                   <v-list-item-title>Salaire de Base</v-list-item-title>
@@ -378,7 +378,7 @@
                 <v-select
                   v-model="form.id_gf_actuel"
                   :items="filteredGfsForSelectedPoste"
-                  item-title="ordre"
+                  item-title="id_gf"
                   item-value="id_gf"
                   label="GF actuel"
                   variant="outlined"
@@ -388,7 +388,7 @@
                 ></v-select>
               </v-col>
               <v-col cols="12" md="3">
-                <v-select v-model="form.id_nr_actuel" :items="nrs" item-title="ordre" item-value="id_nr" label="NR actuel" variant="outlined" density="compact" :rules="[requiredRule]"></v-select>
+                <v-select v-model="form.id_nr_actuel" :items="nrs" item-title="id_nr" item-value="id_nr" label="NR actuel" variant="outlined" density="compact" :rules="[requiredRule]"></v-select>
               </v-col>
               <v-col cols="12" md="3">
                 <v-text-field v-model="form.organisation" label="Organisation" variant="outlined" density="compact"></v-text-field>
@@ -536,7 +536,7 @@ const headers = [
   { title: 'Prénom', key: 'prenom' },
   { title: 'Lieu', key: 'lieu' },
   { title: 'Poste', key: 'poste' },
-  { title: 'GF', key: 'gf_actuel.ordre' },
+  { title: 'GF', key: 'gf_actuel.id_gf' },
   { title: 'Actions', key: 'actions', sortable: false, align: 'end' }
 ]
 

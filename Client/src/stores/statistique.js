@@ -34,7 +34,7 @@ export const useStatistiqueStore = defineStore('statistique', {
             }
         },
         plafonnementAnomalies: [],
-        agentsBloques: [],
+        agentsPlafonnes: [],
         loading: false,
         error: null
     }),
@@ -51,14 +51,14 @@ export const useStatistiqueStore = defineStore('statistique', {
                     repartitionServiceResponse,
                     retraiteResponse,
                     anomaliesResponse,
-                    bloquesResponse
+                    plafonnesResponse
                 ] = await Promise.all([
                     api.get('/statistiques/pyramide-ages'),
                     api.get('/statistiques/repartition-hf'),
                     api.get('/statistiques/repartition-hf-par-service'),
                     api.get('/statistiques/departs-retraite'),
                     api.get('/statistiques/plafonnement-anomalies'),
-                    api.get('/statistiques/agents-bloques')
+                    api.get('/statistiques/agents-plafonnes')
                 ])
 
                 this.pyramideAges = pyramideResponse.data || {}
@@ -66,7 +66,7 @@ export const useStatistiqueStore = defineStore('statistique', {
                 this.repartitionHFParService = repartitionServiceResponse.data || []
                 this.departsRetraite = retraiteResponse.data || this.departsRetraite
                 this.plafonnementAnomalies = anomaliesResponse.data || []
-                this.agentsBloques = bloquesResponse.data || []
+                this.agentsPlafonnes = plafonnesResponse.data || []
             } catch (error) {
                 console.error('Erreur lors du chargement des statistiques:', error)
                 this.error = getErrorMessage(error, 'Erreur lors du chargement des statistiques.')

@@ -44,7 +44,10 @@ const menuItems = [
   { path: '/postes', name: 'Postes', icon: 'fas fa-briefcase' },
   { path: '/postes-vacants', name: 'Postes vacants', icon: 'fas fa-map-marker-alt' },
   { path: '/statistiques', name: 'Statistiques', icon: 'fas fa-chart-bar' },
-  { path: '/avancements', name: 'Avancements', icon: 'fas fa-exchange-alt' },
+  { path: '/notes-appreciation', name: 'Notes d\'appréciation', icon: 'fas fa-star' },
+  { path: '/promotions', name: 'Promotions', icon: 'fas fa-arrow-up' },
+  { path: '/avancements-liste-priorite', name: 'Avancements', icon: 'fas fa-arrow-up' },
+  { path: '/avancements', name: 'Historique avancements', icon: 'fas fa-exchange-alt' },
   { path: '/budget', name: 'Budget', icon: 'fas fa-coins' }
 ]
 </script>

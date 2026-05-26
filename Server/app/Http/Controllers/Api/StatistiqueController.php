@@ -178,8 +178,8 @@ class StatistiqueController extends Controller
         return response()->json($agents);
     }
     
-    // Agents bloqués (au plafond depuis + de 3 ans sans promotion)
-    public function agentsBloques()
+    // Agents plafonnés (au plafond depuis + de 3 ans sans promotion)
+    public function agentsPlafonnes()
     {
         $agents = Agent::with(['poste.tubeMax', 'gfActuel'])
             ->whereRaw('EXISTS (

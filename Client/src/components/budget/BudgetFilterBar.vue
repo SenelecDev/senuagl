@@ -27,24 +27,11 @@
       @update:model-value="emit('update:filters', { ...localFilters })"
     />
     <v-select
-      v-model="localFilters.moisDebut"
+      v-model="localFilters.mois"
       :items="monthOptions"
       item-title="label"
       item-value="value"
-      label="Du mois"
-      variant="outlined"
-      density="compact"
-      hide-details
-      clearable
-      class="filter-field"
-      @update:model-value="emit('update:filters', { ...localFilters })"
-    />
-    <v-select
-      v-model="localFilters.moisFin"
-      :items="monthOptions"
-      item-title="label"
-      item-value="value"
-      label="Au mois"
+      label="Mois"
       variant="outlined"
       density="compact"
       hide-details
@@ -77,8 +64,7 @@ const emit = defineEmits(['update:filters'])
 const localFilters = reactive({
   serviceId: null,
   compteId: null,
-  moisDebut: null,
-  moisFin: null
+  mois: null
 })
 
 const serviceOptions = computed(() =>
@@ -100,15 +86,13 @@ const monthOptions = [
 const hasActiveFilter = computed(() =>
   localFilters.serviceId != null ||
   localFilters.compteId != null ||
-  localFilters.moisDebut != null ||
-  localFilters.moisFin != null
+  localFilters.mois != null
 )
 
 const resetFilters = () => {
   localFilters.serviceId = null
   localFilters.compteId = null
-  localFilters.moisDebut = null
-  localFilters.moisFin = null
+  localFilters.mois = null
   emit('update:filters', { ...localFilters })
 }
 </script>

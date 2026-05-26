@@ -64,10 +64,10 @@
         </article>
         <article class="metric-card metric-blocked">
           <div class="metric-heading">
-            <span class="metric-label">Agents bloqués</span>
+            <span class="metric-label">Agents plafonnés</span>
             <v-icon>mdi-lock-clock-outline</v-icon>
           </div>
-          <strong>{{ agentsBloques.length }}</strong>
+          <strong>{{ agentsPlafonnes.length }}</strong>
           <span class="metric-note">Au plafond depuis au moins 3 ans</span>
         </article>
       </section>
@@ -152,9 +152,9 @@
             </v-tab>
             <v-tab value="services">Services</v-tab>
             <v-tab value="blocked">
-              Agents bloqués
+              Agents plafonnés
               <v-chip class="ml-2" color="secondary" variant="tonal" size="x-small">
-                {{ agentsBloques.length }}
+                {{ agentsPlafonnes.length }}
               </v-chip>
             </v-tab>
           </v-tabs>
@@ -233,10 +233,10 @@
             <v-window-item value="blocked">
               <v-data-table
                 :headers="blockedHeaders"
-                :items="agentsBloques"
+                :items="agentsPlafonnes"
                 :items-per-page="6"
                 density="comfortable"
-                no-data-text="Aucun agent bloqué détecté"
+                no-data-text="Aucun agent plafonné détecté"
               >
                 <template #item.nom_complet="{ item }">
                   {{ item.prenom }} {{ item.nom }}
@@ -268,7 +268,7 @@ const {
   repartitionHF,
   repartitionHFParService,
   departsRetraite,
-  agentsBloques,
+  agentsPlafonnes,
   loading,
   error
 } = storeToRefs(statistiqueStore)

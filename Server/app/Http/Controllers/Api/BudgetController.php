@@ -18,6 +18,7 @@ class BudgetController extends Controller
         return response()->json([
             'services' => Service::query()->orderBy('code')->get(),
             'comptes' => Compte::query()
+                ->with('parent')
                 ->withCount('enfants')
                 ->orderBy('numero')
                 ->get(),
@@ -47,8 +48,14 @@ class BudgetController extends Controller
         $annee = $request->query('annee');
         $anneeInt = $annee !== null && $annee !== '' ? (int) $annee : null;
 
-        $previsionsQuery = BudgetPrevision::query()->with(['service', 'compte'])->orderBy('annee')->orderBy('service_id');
-        $realisationsQuery = Realisation::query()->with(['service', 'compte'])->orderBy('annee')->orderBy('mois');
+        $previsionsQuery = BudgetPrevision::query()
+            ->with(['service', 'compte.parent'])
+            ->orderBy('annee')
+            ->orderBy('service_id');
+        $realisationsQuery = Realisation::query()
+            ->with(['service', 'compte.parent'])
+            ->orderBy('annee')
+            ->orderBy('mois');
 
         if ($anneeInt !== null) {
             $previsionsQuery->where('annee', $anneeInt);
@@ -85,14 +92,23 @@ class BudgetController extends Controller
                 'compte_id' => ['required', 'integer', 'exists:comptes,id'],
                 'montant_prevu' => ['required', 'numeric'],
                 'annee' => ['required', 'integer', 'min:2000', 'max:2100'],
+                'mois' => ['required', 'integer', 'min:1', 'max:12'],
             ]);
-            if (! $this->compteEstSaisissable((int) $validated['compte_id'])) {
-                return $this->compteNonSaisissableResponse();
-            }
             unset($validated['type']);
-            $row = BudgetPrevision::create($validated);
+            $row = BudgetPrevision::query()->updateOrCreate(
+                [
+                    'service_id' => $validated['service_id'],
+                    'compte_id' => $validated['compte_id'],
+                    'annee' => $validated['annee'],
+                    'mois' => $validated['mois'],
+                ],
+                ['montant_prevu' => $validated['montant_prevu']],
+            );
 
-            return response()->json($row->load(['service', 'compte']), 201);
+            return response()->json(
+                $row->load(['service', 'compte']),
+                $row->wasRecentlyCreated ? 201 : 200,
+            );
         }
 
         if ($type === 'realisation') {
@@ -105,9 +121,6 @@ class BudgetController extends Controller
                 'annee' => ['required', 'integer', 'min:2000', 'max:2100'],
                 'observation' => ['nullable', 'string'],
             ]);
-            if (! $this->compteEstSaisissable((int) $validated['compte_id'])) {
-                return $this->compteNonSaisissableResponse();
-            }
             unset($validated['type']);
             $row = Realisation::create($validated);
             $row->load(['service', 'compte']);
@@ -131,10 +144,8 @@ class BudgetController extends Controller
                 'compte_id' => ['sometimes', 'integer', 'exists:comptes,id'],
                 'montant_prevu' => ['sometimes', 'numeric'],
                 'annee' => ['sometimes', 'integer', 'min:2000', 'max:2100'],
+                'mois' => ['sometimes', 'integer', 'min:1', 'max:12'],
             ]);
-            if (isset($validated['compte_id']) && ! $this->compteEstSaisissable((int) $validated['compte_id'])) {
-                return $this->compteNonSaisissableResponse();
-            }
             $row->update($validated);
 
             return response()->json($row->fresh(['service', 'compte']));
@@ -150,9 +161,6 @@ class BudgetController extends Controller
                 'annee' => ['sometimes', 'integer', 'min:2000', 'max:2100'],
                 'observation' => ['nullable', 'string'],
             ]);
-            if (isset($validated['compte_id']) && ! $this->compteEstSaisissable((int) $validated['compte_id'])) {
-                return $this->compteNonSaisissableResponse();
-            }
             $row->update($validated);
             $row->refresh();
             $row->load(['service', 'compte']);

@@ -35,6 +35,8 @@ class DatabaseSeeder extends Seeder
             AgentSeeder::class,
             AvancementSeeder::class,
             UpdateAgentLocationsSeeder::class,
+            NoteAppreciationSeeder::class,
+            PromotionAndAvancementSeeder::class,
             ServiceSeeder::class,
             CompteSeeder::class,
             BudgetPrevisionSeeder::class,

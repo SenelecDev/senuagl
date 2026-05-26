@@ -138,14 +138,17 @@
           <v-card-title class="section-title">
             <div>
               <h2>Vue mensuelle</h2>
-              <p>Détail mois par mois des réalisations pour {{ annee }}{{ hasActiveFilter ? ' (filtré)' : '' }}.</p>
+              <p>Prévisions, réalisations et écarts pour {{ activeMonthLabel }} {{ annee }}{{ hasActiveFilter ? ' (filtré)' : '' }}.</p>
             </div>
           </v-card-title>
           <div class="mensuel-container">
             <BudgetMensuelTable
-              :rows="filteredMensuel"
-              :mois-debut="activeMoisDebut"
-              :mois-fin="activeMoisFin"
+              :rows="filteredMensuelPivot"
+              :services="services"
+              :mois="activeMois"
+              :service-id="filters.serviceId"
+              :annee="selectedYear"
+              @prevision-updated="handlePrevisionUpdated"
             />
           </div>
         </v-window-item>
@@ -153,12 +156,12 @@
         <v-window-item value="prevision">
           <div class="form-panel">
             <div class="form-copy">
-              <h2>Nouvelle prévision</h2>
-              <p>Renseigne le budget annuel prévu pour un service et un compte.</p>
+              <h2>Prévision mensuelle</h2>
+              <p>Une seule prévision par service, compte, mois et année. Si elle existe déjà, le montant sera mis à jour.</p>
             </div>
             <v-form ref="previsionFormRef" @submit.prevent="submitPrevision">
               <v-row>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
                   <v-select
                     v-model="previsionForm.service_id"
                     :items="services"
@@ -171,7 +174,7 @@
                     :rules="[requiredRule]"
                   />
                 </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
 	                  <v-select
 	                    v-model="previsionForm.compte_id"
 	                    :items="comptesSaisissables"
@@ -181,6 +184,18 @@
                     variant="outlined"
                     density="compact"
                     :loading="loadingRefs"
+                    :rules="[requiredRule]"
+                  />
+                </v-col>
+                <v-col cols="12" md="2">
+                  <v-select
+                    v-model.number="previsionForm.mois"
+                    :items="monthOptions"
+                    item-title="label"
+                    item-value="value"
+                    label="Mois"
+                    variant="outlined"
+                    density="compact"
                     :rules="[requiredRule]"
                   />
                 </v-col>
@@ -444,6 +459,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useBudgetStore } from '@/stores/budget'
+import { matchesCompteFilter, rowsForKpi } from '@/utils/budgetHierarchy'
 import BudgetFilterBar from '@/components/budget/BudgetFilterBar.vue'
 import BudgetMensuelTable from '@/components/budget/BudgetMensuelTable.vue'
 
@@ -467,38 +483,40 @@ const {
   ecartGlobal,
   tauxExecution,
   budgetRows,
-  vuesMensuelles
+  vuesMensuellesPivot
 } = storeToRefs(budgetStore)
 
 // --- Filtres ---
 const filters = reactive({
   serviceId: null,
   compteId: null,
-  moisDebut: null,
-  moisFin: null
+  mois: null
 })
 
 const onFiltersChange = (f) => {
   filters.serviceId = f.serviceId
   filters.compteId = f.compteId
-  filters.moisDebut = f.moisDebut
-  filters.moisFin = f.moisFin
+  filters.mois = f.mois
 }
 
 const hasActiveFilter = computed(() =>
   filters.serviceId != null ||
   filters.compteId != null ||
-  filters.moisDebut != null ||
-  filters.moisFin != null
+  filters.mois != null
 )
 
-const activeMoisDebut = computed(() => filters.moisDebut ?? 1)
-const activeMoisFin = computed(() => filters.moisFin ?? 12)
+const activeMois = computed(() => filters.mois ?? new Date().getMonth() + 1)
 
 const applyServiceCompteFilter = (rows) => {
   return rows.filter((row) => {
-    if (filters.serviceId != null && row.service_id !== filters.serviceId) return false
-    if (filters.compteId != null && row.compte_id !== filters.compteId) return false
+    if (filters.serviceId != null && Number(row.service_id) !== Number(filters.serviceId)) {
+      return false
+    }
+
+    if (!matchesCompteFilter(row, filters.compteId, comptes.value)) {
+      return false
+    }
+
     return true
   })
 }
@@ -506,31 +524,22 @@ const applyServiceCompteFilter = (rows) => {
 // Suivi table filtré
 const filteredBudgetRows = computed(() => applyServiceCompteFilter(budgetRows.value))
 
-// Vue mensuelle filtrée
-const filteredMensuel = computed(() => applyServiceCompteFilter(vuesMensuelles.value))
-
-const kpiMensuelRows = computed(() => {
-  if (filters.compteId != null) {
-    return filteredMensuel.value
-  }
-
-  return filteredMensuel.value.filter(row => !row.is_regroupement)
-})
-
-// KPIs filtrés
-const filteredTotalPrevu = computed(() =>
-  kpiMensuelRows.value.reduce((sum, row) => sum + (row.montant_prevu ?? 0), 0)
+const filteredMensuelPivot = computed(() =>
+  vuesMensuellesPivot.value.filter((row) => matchesCompteFilter(row, filters.compteId, comptes.value))
 )
 
-const filteredTotalRealise = computed(() => {
-  return kpiMensuelRows.value.reduce((sum, row) => {
-    let rowTotal = 0
-    for (let m = activeMoisDebut.value; m <= activeMoisFin.value; m++) {
-      rowTotal += row.mois?.[m] ?? 0
-    }
-    return sum + rowTotal
-  }, 0)
-})
+const kpiSuiviRows = computed(() =>
+  rowsForKpi(filteredBudgetRows.value, filters.compteId, comptes.value)
+)
+
+// KPIs filtrés.
+const filteredTotalPrevu = computed(() =>
+  kpiSuiviRows.value.reduce((sum, row) => sum + (row.montant_prevu ?? 0), 0)
+)
+
+const filteredTotalRealise = computed(() =>
+  kpiSuiviRows.value.reduce((sum, row) => sum + (row.montant_realise ?? 0), 0)
+)
 
 const filteredEcart = computed(() => filteredTotalPrevu.value - filteredTotalRealise.value)
 
@@ -549,6 +558,7 @@ const previsionForm = reactive({
   service_id: null,
   compte_id: null,
   montant_prevu: null,
+  mois: new Date().getMonth() + 1,
   annee: selectedYear.value
 })
 
@@ -593,6 +603,10 @@ const monthOptions = [
   'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
 ].map((label, index) => ({ label, value: index + 1 }))
 
+const activeMonthLabel = computed(() =>
+  monthOptions.find((month) => month.value === activeMois.value)?.label || ''
+)
+
 const requiredRule = value => Boolean(value) || 'Champ requis'
 const positiveRule = value => Number(value) >= 0 || 'Montant invalide'
 
@@ -633,6 +647,7 @@ const resetPrevisionForm = () => {
   previsionForm.service_id = null
   previsionForm.compte_id = null
   previsionForm.montant_prevu = null
+  previsionForm.mois = new Date().getMonth() + 1
   previsionForm.annee = selectedYear.value
 }
 
@@ -704,9 +719,14 @@ watch(selectedYear, (value) => {
   realisationForm.annee = value
 })
 
+const handlePrevisionUpdated = async () => {
+  // Rafraîchir les données du budget après une modification
+  await budgetStore.fetchBudget()
+}
+
 onMounted(async () => {
+  await budgetStore.fetchReferentiels()
   await Promise.all([
-    budgetStore.fetchReferentiels(),
     budgetStore.fetchBudget(),
     budgetStore.fetchInvestissements()
   ])

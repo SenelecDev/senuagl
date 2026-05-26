@@ -6,6 +6,9 @@ import PostesIndex from '../views/Postes/Index.vue'
 import PostesVacants from '../views/Postes/Vacants.vue'
 import Statistiques from '../views/Statistiques.vue'
 import Avancements from '../views/Avancements.vue'
+import AvancementsListePriorite from '../views/Avancements/ListePriorite.vue'
+import Promotions from '../views/Promotions.vue'
+import NotesAppreciation from '../views/NotesAppreciation.vue'
 import Budget from '../views/Budget/Index.vue'
 import Login from '../views/Login.vue'
 import { useAuthStore } from '../stores/auth'
@@ -57,6 +60,24 @@ const routes = [
         path: '/avancements',
         name: 'Avancements',
         component: Avancements,
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/avancements-liste-priorite',
+        name: 'AvancementsListePriorite',
+        component: AvancementsListePriorite,
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/promotions',
+        name: 'Promotions',
+        component: Promotions,
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/notes-appreciation',
+        name: 'NotesAppreciation',
+        component: NotesAppreciation,
         meta: { requiresAuth: true }
     },
     {

@@ -93,11 +93,11 @@
         </template>
 
         <template #item.gf="{ item }">
-          {{ item.gf_ancien?.ordre || 'N/A' }} -> {{ item.gf_nouveau?.ordre || 'N/A' }}
+          {{ item.gf_ancien?.id_gf || 'N/A' }} -> {{ item.gf_nouveau?.id_gf || 'N/A' }}
         </template>
 
         <template #item.nr="{ item }">
-          {{ item.nr_ancien?.ordre || 'N/A' }} -> {{ item.nr_nouveau?.ordre || 'N/A' }}
+          {{ item.nr_ancien?.id_nr || 'N/A' }} -> {{ item.nr_nouveau?.id_nr || 'N/A' }}
         </template>
 
         <template #item.actions="{ item }">
@@ -177,7 +177,7 @@
                 <v-switch
                   v-model="form.changer_gf"
                   color="primary"
-                  label="Promotion GF"
+                  label="Promotion"
                   hide-details
                   @update:model-value="syncCurrentAgentLevels"
                 />
@@ -186,7 +186,7 @@
                 <v-select
                   v-model="form.id_gf_ancien"
                   :items="gfs"
-                  item-title="ordre"
+                  item-title="id_gf"
                   item-value="id_gf"
                   label="GF ancien"
                   variant="outlined"
@@ -199,7 +199,7 @@
                 <v-select
                   v-model="form.id_gf_nouveau"
                   :items="gfs"
-                  item-title="ordre"
+                  item-title="id_gf"
                   item-value="id_gf"
                   label="GF nouveau"
                   variant="outlined"
@@ -213,7 +213,7 @@
                 <v-switch
                   v-model="form.changer_nr"
                   color="primary"
-                  label="Changement NR"
+                  label="Avancement"
                   hide-details
                   @update:model-value="syncCurrentAgentLevels"
                 />
@@ -222,7 +222,7 @@
                 <v-select
                   v-model="form.id_nr_ancien"
                   :items="nrs"
-                  item-title="ordre"
+                  item-title="id_nr"
                   item-value="id_nr"
                   label="NR ancien"
                   variant="outlined"
@@ -235,7 +235,7 @@
                 <v-select
                   v-model="form.id_nr_nouveau"
                   :items="nrs"
-                  item-title="ordre"
+                  item-title="id_nr"
                   item-value="id_nr"
                   label="NR nouveau"
                   variant="outlined"
@@ -313,8 +313,8 @@ const selectedAvancement = ref(null)
 const editDate = ref('')
 
 const typeFilters = [
-  { label: 'Promotion GF', value: 'GF' },
-  { label: 'Changement NR', value: 'NR' }
+  { label: 'Promotion', value: 'GF' },
+  { label: 'Avancement', value: 'NR' }
 ]
 
 const headers = [
@@ -366,9 +366,9 @@ const toInputDate = (date) => {
 const getTypeLabel = (item) => {
   const hasGf = Boolean(item.id_gf_nouveau)
   const hasNr = Boolean(item.id_nr_nouveau)
-  if (hasGf && hasNr) return 'GF + NR'
-  if (hasGf) return 'Promotion GF'
-  if (hasNr) return 'Changement NR'
+  if (hasGf && hasNr) return 'Promotion + Avancement'
+  if (hasGf) return 'Promotion'
+  if (hasNr) return 'Avancement'
   return 'Indéfini'
 }
 
@@ -420,7 +420,7 @@ const submitCreate = async () => {
   if (!validation?.valid) return
 
   if (!form.value.changer_gf && !form.value.changer_nr) {
-    avancementStore.error = 'Sélectionnez au moins une promotion GF ou un changement NR.'
+    avancementStore.error = 'Sélectionnez au moins une promotion ou un avancement.'
     return
   }
 

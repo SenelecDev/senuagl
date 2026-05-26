@@ -17,6 +17,7 @@ class BudgetPrevision extends Model
         'compte_id',
         'montant_prevu',
         'annee',
+        'mois',
     ];
 
     /**
@@ -27,6 +28,7 @@ class BudgetPrevision extends Model
         return [
             'montant_prevu' => 'decimal:2',
             'annee' => 'integer',
+            'mois' => 'integer',
         ];
     }
 

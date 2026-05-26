@@ -197,7 +197,7 @@
                 <v-select
                   v-model="form.tube_min"
                   :items="gfs"
-                  item-title="ordre"
+                  item-title="id_gf"
                   item-value="id_gf"
                   label="Tube min"
                   variant="outlined"
@@ -209,7 +209,7 @@
                 <v-select
                   v-model="form.tube_max"
                   :items="gfs"
-                  item-title="ordre"
+                  item-title="id_gf"
                   item-value="id_gf"
                   label="Tube max"
                   variant="outlined"
@@ -295,10 +295,10 @@
                   {{ item.prenom }} {{ item.nom }}
                 </template>
                 <template #item.gf="{ item }">
-                  {{ item.gf_actuel?.ordre || 'N/A' }}
+                  {{ item.gf_actuel?.id_gf || 'N/A' }}
                 </template>
                 <template #item.nr="{ item }">
-                  {{ item.nr_actuel?.ordre || 'N/A' }}
+                  {{ item.nr_actuel?.id_nr || 'N/A' }}
                 </template>
               </v-data-table>
             </v-sheet>

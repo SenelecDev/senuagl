@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Budget\BudgetPrevision;
 use App\Models\Budget\Compte;
 use App\Models\Budget\Realisation;
-use App\Models\Budget\Service;
+
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -16,7 +16,7 @@ class BudgetController extends Controller
     public function referentiels(): JsonResponse
     {
         return response()->json([
-            'services' => Service::query()->orderBy('code')->get(),
+
             'comptes' => Compte::query()
                 ->with('parent')
                 ->withCount('enfants')
@@ -49,11 +49,10 @@ class BudgetController extends Controller
         $anneeInt = $annee !== null && $annee !== '' ? (int) $annee : null;
 
         $previsionsQuery = BudgetPrevision::query()
-            ->with(['service', 'compte.parent'])
-            ->orderBy('annee')
-            ->orderBy('service_id');
+            ->with(['compte.parent'])
+            ->orderBy('annee');
         $realisationsQuery = Realisation::query()
-            ->with(['service', 'compte.parent'])
+            ->with(['compte.parent'])
             ->orderBy('annee')
             ->orderBy('mois');
 
@@ -88,7 +87,7 @@ class BudgetController extends Controller
         if ($type === 'prevision') {
             $validated = $request->validate([
                 'type' => ['required', Rule::in(['prevision'])],
-                'service_id' => ['required', 'integer', 'exists:services,id'],
+
                 'compte_id' => ['required', 'integer', 'exists:comptes,id'],
                 'montant_prevu' => ['required', 'numeric'],
                 'annee' => ['required', 'integer', 'min:2000', 'max:2100'],
@@ -97,7 +96,7 @@ class BudgetController extends Controller
             unset($validated['type']);
             $row = BudgetPrevision::query()->updateOrCreate(
                 [
-                    'service_id' => $validated['service_id'],
+
                     'compte_id' => $validated['compte_id'],
                     'annee' => $validated['annee'],
                     'mois' => $validated['mois'],
@@ -106,7 +105,7 @@ class BudgetController extends Controller
             );
 
             return response()->json(
-                $row->load(['service', 'compte']),
+                $row->load(['compte']),
                 $row->wasRecentlyCreated ? 201 : 200,
             );
         }
@@ -114,7 +113,7 @@ class BudgetController extends Controller
         if ($type === 'realisation') {
             $validated = $request->validate([
                 'type' => ['required', Rule::in(['realisation'])],
-                'service_id' => ['required', 'integer', 'exists:services,id'],
+
                 'compte_id' => ['required', 'integer', 'exists:comptes,id'],
                 'montant_realise' => ['required', 'numeric'],
                 'mois' => ['required', 'integer', 'min:1', 'max:12'],
@@ -123,7 +122,7 @@ class BudgetController extends Controller
             ]);
             unset($validated['type']);
             $row = Realisation::create($validated);
-            $row->load(['service', 'compte']);
+            $row->load(['compte']);
 
             $payload = $row->toArray();
             $payload['ecart_vers_prevision_annuelle'] = $row->ecartVersPrevisionAnnuelle();
@@ -140,7 +139,7 @@ class BudgetController extends Controller
         if ($type === 'prevision') {
             $row = BudgetPrevision::query()->findOrFail($id);
             $validated = $request->validate([
-                'service_id' => ['sometimes', 'integer', 'exists:services,id'],
+
                 'compte_id' => ['sometimes', 'integer', 'exists:comptes,id'],
                 'montant_prevu' => ['sometimes', 'numeric'],
                 'annee' => ['sometimes', 'integer', 'min:2000', 'max:2100'],
@@ -148,13 +147,13 @@ class BudgetController extends Controller
             ]);
             $row->update($validated);
 
-            return response()->json($row->fresh(['service', 'compte']));
+            return response()->json($row->fresh(['compte']));
         }
 
         if ($type === 'realisation') {
             $row = Realisation::query()->findOrFail($id);
             $validated = $request->validate([
-                'service_id' => ['sometimes', 'integer', 'exists:services,id'],
+
                 'compte_id' => ['sometimes', 'integer', 'exists:comptes,id'],
                 'montant_realise' => ['sometimes', 'numeric'],
                 'mois' => ['sometimes', 'integer', 'min:1', 'max:12'],
@@ -163,7 +162,7 @@ class BudgetController extends Controller
             ]);
             $row->update($validated);
             $row->refresh();
-            $row->load(['service', 'compte']);
+            $row->load(['compte']);
             $payload = $row->toArray();
             $payload['ecart_vers_prevision_annuelle'] = $row->ecartVersPrevisionAnnuelle();
             $payload['ecart_vers_prevision_mensuelle_proratis'] = $row->ecartVersPrevisionMensuelleProratis();

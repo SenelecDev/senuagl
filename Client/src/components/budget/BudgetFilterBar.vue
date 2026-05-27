@@ -1,19 +1,6 @@
 <template>
   <section class="filter-bar">
     <v-select
-      v-model="localFilters.serviceId"
-      :items="serviceOptions"
-      item-title="label"
-      item-value="value"
-      label="Service"
-      variant="outlined"
-      density="compact"
-      hide-details
-      clearable
-      class="filter-field"
-      @update:model-value="emit('update:filters', { ...localFilters })"
-    />
-    <v-select
       v-model="localFilters.compteId"
       :items="compteOptions"
       item-title="label"
@@ -55,21 +42,17 @@
 import { computed, reactive } from 'vue'
 
 const props = defineProps({
-  services: { type: Array, default: () => [] },
+
   comptes: { type: Array, default: () => [] }
 })
 
 const emit = defineEmits(['update:filters'])
 
 const localFilters = reactive({
-  serviceId: null,
+
   compteId: null,
   mois: null
 })
-
-const serviceOptions = computed(() =>
-  props.services.map((s) => ({ label: `${s.code} — ${s.intitule}`, value: s.id }))
-)
 
 const compteOptions = computed(() =>
   props.comptes.map((c) => ({
@@ -84,13 +67,12 @@ const monthOptions = [
 ].map((label, index) => ({ label, value: index + 1 }))
 
 const hasActiveFilter = computed(() =>
-  localFilters.serviceId != null ||
   localFilters.compteId != null ||
   localFilters.mois != null
 )
 
 const resetFilters = () => {
-  localFilters.serviceId = null
+
   localFilters.compteId = null
   localFilters.mois = null
   emit('update:filters', { ...localFilters })

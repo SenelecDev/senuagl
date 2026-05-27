@@ -11,7 +11,7 @@ export const useBudgetStore = defineStore('budget', {
     annee: new Date().getFullYear(),
     previsions: [],
     realisations: [],
-    services: [],
+
     comptes: [],
     investissements: [],
     calculation: null,
@@ -44,7 +44,7 @@ export const useBudgetStore = defineStore('budget', {
      */
     vuesMensuelles: (state) => buildMensuelRows(state.previsions, state.realisations, state.comptes),
     vuesMensuellesPivot: (state) =>
-      buildMensuelPivotRows(state.previsions, state.realisations, state.comptes, state.services)
+      buildMensuelPivotRows(state.previsions, state.realisations, state.comptes)
   },
 
   actions: {
@@ -58,7 +58,6 @@ export const useBudgetStore = defineStore('budget', {
 
       try {
         const response = await api.get('/budget/referentiels')
-        this.services = response.data.services || []
         this.comptes = response.data.comptes || []
       } catch (error) {
         this.error = getErrorMessage(error, 'Erreur lors du chargement des référentiels budget.')

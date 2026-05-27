@@ -2,7 +2,6 @@
 
 use App\Models\Budget\BudgetPrevision;
 use App\Models\Budget\Compte;
-use App\Models\Budget\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -10,12 +9,10 @@ uses(RefreshDatabase::class);
 
 test('enregistre une prévision budget', function () {
     $user = User::factory()->create();
-    $service = Service::query()->create(['code' => 'TST', 'intitule' => 'Service test']);
     $compte = Compte::query()->create(['numero' => '999001', 'intitule' => 'Compte test']);
 
     $response = $this->actingAs($user)->postJson('/api/budget', [
         'type' => 'prevision',
-        'service_id' => $service->id,
         'compte_id' => $compte->id,
         'montant_prevu' => 150_000,
         'annee' => 2024,
@@ -29,13 +26,11 @@ test('enregistre une prévision budget', function () {
     expect(BudgetPrevision::query()->count())->toBe(1);
 });
 
-test('met à jour une prévision existante pour le même service compte et année', function () {
+test('met à jour une prévision existante pour le même compte et année', function () {
     $user = User::factory()->create();
-    $service = Service::query()->create(['code' => 'TST', 'intitule' => 'Service test']);
     $compte = Compte::query()->create(['numero' => '999002', 'intitule' => 'Compte test']);
 
     BudgetPrevision::query()->create([
-        'service_id' => $service->id,
         'compte_id' => $compte->id,
         'montant_prevu' => 100_000,
         'annee' => 2024,
@@ -44,7 +39,6 @@ test('met à jour une prévision existante pour le même service compte et anné
 
     $response = $this->actingAs($user)->postJson('/api/budget', [
         'type' => 'prevision',
-        'service_id' => $service->id,
         'compte_id' => $compte->id,
         'montant_prevu' => 150_000,
         'annee' => 2024,
@@ -60,11 +54,9 @@ test('met à jour une prévision existante pour le même service compte et anné
 
 test('crée une nouvelle prévision pour un mois différent', function () {
     $user = User::factory()->create();
-    $service = Service::query()->create(['code' => 'TST', 'intitule' => 'Service test']);
     $compte = Compte::query()->create(['numero' => '999003', 'intitule' => 'Compte test']);
 
     BudgetPrevision::query()->create([
-        'service_id' => $service->id,
         'compte_id' => $compte->id,
         'montant_prevu' => 100_000,
         'annee' => 2024,
@@ -73,7 +65,6 @@ test('crée une nouvelle prévision pour un mois différent', function () {
 
     $response = $this->actingAs($user)->postJson('/api/budget', [
         'type' => 'prevision',
-        'service_id' => $service->id,
         'compte_id' => $compte->id,
         'montant_prevu' => 150_000,
         'annee' => 2024,

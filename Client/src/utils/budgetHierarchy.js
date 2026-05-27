@@ -4,40 +4,33 @@ const makeEmptyMonths = () => {
   return mois
 }
 
-const SERVICE_ORDER = ['SGB', 'SGS', 'SA', 'SEG', 'SA2']
+const SERVICE_ORDER = []
 const MONTHLY_REPORT_COMPTES = [
-  ['605', 'EAU/ELECTRICITE/GAZ/SERVICES ET ACHATS DIVERS'],
-  ['61.', 'TRANSPORTS'],
-  ['622', 'LOCATIONS'],
-  ['624', 'ENTRETIENS ET REPARATIONS'],
-  ['625.200', 'ASSURANCES MATERIEL DE TRANSPT'],
+  ['605.500', 'ACHATS DIRECT IMPRIM & FOURNI.'],
+  ['605.510', 'ACHATS DIRECT FOURNI INFORMATI'],
+  ['605.600', 'ACHATS DIRECT DE PETIT MAT.'],
+  ['SECTION-AUTRES-ACHATS', 'AUTRES ACHATS'],
+  ['618.100', 'VOYAGES & DEPLT MISSION HORS SE'],
+  ['618.110', 'VOYAGES & DEPLT PERSONEL MISSION'],
+  ['SECTION-TRANSPORTS', 'TRANSPORTS'],
+  ['621.000', 'TRAVAUX ET SCES EXTERIEURS'],
+  ['622.320', 'LOCATION DE MATERIEL INFORMATIQ (infogerance)'],
+  ['624.310', 'MAINTENANCE REPARAT. MATERIEL I'],
   ['626.500', 'DOCUMENTATION GENERALE'],
-  ['627.600', 'CADEAUX ET DONS'],
-  ['628.000', 'FRAIS DE TELECOMMUNICATIONS'],
-  ['631.100', 'FRAIS BANCAIRES'],
-  ['632.400', 'HONORAIRES'],
-  ['633.000', 'FRAIS DE FORMATION DU PERSONNEL'],
-  ['637.100', 'REMUNERATIONS DU PERSON INTERIM'],
-  ['638', 'FRAIS LIES A LA RESTAURATION, MISSIONS ET RECEPTIONS'],
-  ['641', 'IMPOTS SUR SALAIRES'],
-  ['647.000', 'PENALITES ET AMENDES NON DEDUCT'],
-  ['661', 'SALAIRES'],
-  ['662.600', 'SUPPLT FAMILIAL PERS NON NATIONAL'],
-  ['663.100', 'INDEMNITES FORFAIT DE LOGEMENT'],
-  ['664', 'COTISATIONS SOCIALES']
+  ['626.600', 'DOCUMENTATION TECHNIQUE'],
+  ['628.800', 'FRAIS DE TELECOMMUNICATION'],
+  ['632.440', "PRESTATIONS D'EXPERTISE"],
+  ['633.000', 'FRAIS RECYCLAGES ET FORMATIONS'],
+  ['634.300', 'REDEVANCES POUR LOGICIELS'],
+  ['638.302', 'PAUSES CAFE ET RESTAURATION'],
+  ['SECTION-SERVICES-EXTERIEURS', 'SERVICES EXTERIEURS'],
+  ['661.101', 'Heures Supplémentaires'],
+  ['SECTION-CHARGES-PERSONNEL', 'CHARGES DE PERSONNEL']
 ]
 
-function sortServices(a, b) {
-  const aIndex = SERVICE_ORDER.indexOf(String(a.code || ''))
-  const bIndex = SERVICE_ORDER.indexOf(String(b.code || ''))
+const isSectionCompte = (compte) => String(compte?.numero || '').startsWith('SECTION-')
 
-  if (aIndex !== -1 || bIndex !== -1) {
-    return (aIndex === -1 ? SERVICE_ORDER.length : aIndex) -
-      (bIndex === -1 ? SERVICE_ORDER.length : bIndex)
-  }
 
-  return String(a.code || '').localeCompare(String(b.code || ''))
-}
 
 export function buildCompteIndex(comptes) {
   const byId = new Map()
@@ -106,10 +99,8 @@ function rollupToAncestors(row, regroupements, byId, keyBuilder) {
     const key = keyBuilder(row, parent.id)
     const existing = regroupements.get(key) || {
       key,
-      service_id: row.service_id,
       compte_id: parent.id,
       annee: row.annee,
-      service: row.service,
       compte: parent,
       montant_prevu: 0,
       montant_realise: 0,
@@ -167,8 +158,6 @@ function finalizeMensuelRow(row) {
 }
 
 function sortBudgetRows(a, b) {
-  const serviceCompare = String(a.service?.code || '').localeCompare(String(b.service?.code || ''))
-  if (serviceCompare !== 0) return serviceCompare
 
   const compteCompare = String(a.compte?.numero || '').localeCompare(String(b.compte?.numero || ''))
   if (compteCompare !== 0) return compteCompare
@@ -184,15 +173,13 @@ export function buildSuiviRows(previsions, realisations, comptes) {
   const rows = new Map()
 
   previsions.forEach((prevision) => {
-    const key = `${prevision.service_id}-${prevision.compte_id}-${prevision.annee}`
+    const key = `${prevision.compte_id}-${prevision.annee}`
     const compte = byId.get(Number(prevision.compte_id)) || prevision.compte
 
     rows.set(key, {
       key,
-      service_id: prevision.service_id,
       compte_id: prevision.compte_id,
       annee: prevision.annee,
-      service: prevision.service,
       compte,
       montant_prevu: Number(prevision.montant_prevu || 0),
       montant_realise: 0
@@ -200,14 +187,12 @@ export function buildSuiviRows(previsions, realisations, comptes) {
   })
 
   realisations.forEach((realisation) => {
-    const key = `${realisation.service_id}-${realisation.compte_id}-${realisation.annee}`
+    const key = `${realisation.compte_id}-${realisation.annee}`
     const compte = byId.get(Number(realisation.compte_id)) || realisation.compte
     const existing = rows.get(key) || {
       key,
-      service_id: realisation.service_id,
       compte_id: realisation.compte_id,
       annee: realisation.annee,
-      service: realisation.service,
       compte,
       montant_prevu: 0,
       montant_realise: 0
@@ -226,7 +211,7 @@ export function buildSuiviRows(previsions, realisations, comptes) {
   const regroupements = new Map()
   detailRows.forEach((row) => {
     rollupToAncestors(row, regroupements, byId, (detailRow, parentId) =>
-      `regroupement-${detailRow.service_id}-${parentId}-${detailRow.annee}`
+      `regroupement-${parentId}-${detailRow.annee}`
     )
   })
 
@@ -243,15 +228,13 @@ export function buildMensuelRows(previsions, realisations, comptes) {
   const rows = new Map()
 
   previsions.forEach((prevision) => {
-    const key = `${prevision.service_id}-${prevision.compte_id}`
+    const key = `${prevision.compte_id}`
     const compte = byId.get(Number(prevision.compte_id)) || prevision.compte
 
     if (!rows.has(key)) {
       rows.set(key, {
         key,
-        service_id: prevision.service_id,
         compte_id: prevision.compte_id,
-        service: prevision.service,
         compte,
         mois: makeEmptyMonths(),
         montant_prevu: 0,
@@ -263,15 +246,13 @@ export function buildMensuelRows(previsions, realisations, comptes) {
   })
 
   realisations.forEach((realisation) => {
-    const key = `${realisation.service_id}-${realisation.compte_id}`
+    const key = `${realisation.compte_id}`
     const compte = byId.get(Number(realisation.compte_id)) || realisation.compte
 
     if (!rows.has(key)) {
       rows.set(key, {
         key,
-        service_id: realisation.service_id,
         compte_id: realisation.compte_id,
-        service: realisation.service,
         compte,
         mois: makeEmptyMonths(),
         montant_prevu: 0,
@@ -301,7 +282,7 @@ export function buildMensuelRows(previsions, realisations, comptes) {
   const regroupements = new Map()
   detailRows.forEach((row) => {
     rollupToAncestors(row, regroupements, byId, (detailRow, parentId) =>
-      `regroupement-${detailRow.service_id}-${parentId}`
+      `regroupement-${parentId}`
     )
   })
 
@@ -310,39 +291,34 @@ export function buildMensuelRows(previsions, realisations, comptes) {
   return [...regroupementRows, ...detailRows].sort(sortBudgetRows)
 }
 
-export function buildMensuelPivotRows(previsions, realisations, comptes, services) {
+export function buildMensuelPivotRows(previsions, realisations, comptes) {
   const { byId, childrenByParentId } = buildCompteIndex(comptes)
-  const serviceList = [...services].sort(sortServices)
   const compteByNumero = new Map(comptes.map((compte) => [String(compte.numero || ''), compte]))
 
   const eligibleComptes = MONTHLY_REPORT_COMPTES.map(([numero, intitule]) => {
     const compte = compteByNumero.get(numero)
 
-    return compte || {
+    return compte
+      ? { ...compte, is_section: isSectionCompte(compte) }
+      : {
       id: `monthly-report-${numero}`,
       numero,
       intitule,
       parent_id: null,
-      enfants_count: 0
+      enfants_count: 0,
+      is_section: String(numero).startsWith('SECTION-')
     }
   })
 
   const rows = eligibleComptes.map((compte) => {
-    const serviceValues = {}
-
-    serviceList.forEach((service) => {
-      serviceValues[service.id] = {
-        previsions: makeEmptyMonths(),
-        mois: makeEmptyMonths()
-      }
-    })
-
     return {
       key: `mensuel-pivot-${compte.id}`,
       compte_id: compte.id,
       compte,
-      services: serviceValues,
-      is_regroupement: compteHasChildren(compte.id, childrenByParentId),
+      previsions: makeEmptyMonths(),
+      mois: makeEmptyMonths(),
+      is_regroupement: compteHasChildren(compte.id, childrenByParentId) || compte.is_section,
+      is_section: compte.is_section,
       niveau: getCompteDepth(compte.id, byId)
     }
   })
@@ -372,30 +348,24 @@ export function buildMensuelPivotRows(previsions, realisations, comptes, service
   }
 
   previsions.forEach((prevision) => {
-    const serviceId = Number(prevision.service_id)
     const targetRows = getTargetRows(prevision.compte_id)
 
     targetRows.forEach((row) => {
-      if (row.services[serviceId]) {
-        const mois = Number(prevision.mois || 1)
-        if (mois >= 1 && mois <= 12) {
-          row.services[serviceId].previsions[mois] += Number(prevision.montant_prevu || 0)
-        }
+      const mois = Number(prevision.mois || 1)
+      if (mois >= 1 && mois <= 12) {
+        row.previsions[mois] += Number(prevision.montant_prevu || 0)
       }
     })
   })
 
   realisations.forEach((realisation) => {
-    const serviceId = Number(realisation.service_id)
     const mois = Number(realisation.mois)
     const targetRows = getTargetRows(realisation.compte_id)
 
     if (mois < 1 || mois > 12) return
 
     targetRows.forEach((row) => {
-      if (row.services[serviceId]) {
-        row.services[serviceId].mois[mois] += Number(realisation.montant_realise || 0)
-      }
+      row.mois[mois] += Number(realisation.montant_realise || 0)
     })
   })
 

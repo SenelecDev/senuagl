@@ -13,7 +13,6 @@ class BudgetPrevision extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'service_id',
         'compte_id',
         'montant_prevu',
         'annee',
@@ -32,13 +31,6 @@ class BudgetPrevision extends Model
         ];
     }
 
-    /**
-     * @return BelongsTo<Service, $this>
-     */
-    public function service(): BelongsTo
-    {
-        return $this->belongsTo(Service::class, 'service_id');
-    }
 
     /**
      * @return BelongsTo<Compte, $this>

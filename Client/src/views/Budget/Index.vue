@@ -30,7 +30,6 @@
     </v-alert>
 
     <BudgetFilterBar
-      :services="services"
       :comptes="comptes"
       @update:filters="onFiltersChange"
     />
@@ -96,10 +95,7 @@
             hover
             no-data-text="Aucune donnée budgétaire pour cette année"
           >
-            <template #item.service="{ item }">
-              <strong>{{ item.service?.code || 'N/A' }}</strong>
-              <div class="muted">{{ item.service?.intitule || '' }}</div>
-            </template>
+
 	            <template #item.compte="{ item }">
 	              <div class="account-cell" :class="{ 'is-child': item.niveau > 0 }">
 	                <strong>{{ item.compte?.numero || 'N/A' }}</strong>
@@ -144,9 +140,7 @@
           <div class="mensuel-container">
             <BudgetMensuelTable
               :rows="filteredMensuelPivot"
-              :services="services"
               :mois="activeMois"
-              :service-id="filters.serviceId"
               :annee="selectedYear"
               @prevision-updated="handlePrevisionUpdated"
             />
@@ -161,19 +155,6 @@
             </div>
             <v-form ref="previsionFormRef" @submit.prevent="submitPrevision">
               <v-row>
-                <v-col cols="12" md="3">
-                  <v-select
-                    v-model="previsionForm.service_id"
-                    :items="services"
-                    :item-title="serviceTitle"
-                    item-value="id"
-                    label="Service"
-                    variant="outlined"
-                    density="compact"
-                    :loading="loadingRefs"
-                    :rules="[requiredRule]"
-                  />
-                </v-col>
                 <v-col cols="12" md="3">
 	                  <v-select
 	                    v-model="previsionForm.compte_id"
@@ -237,18 +218,6 @@
             </div>
             <v-form ref="realisationFormRef" @submit.prevent="submitRealisation">
               <v-row>
-                <v-col cols="12" md="3">
-                  <v-select
-                    v-model="realisationForm.service_id"
-                    :items="services"
-                    :item-title="serviceTitle"
-                    item-value="id"
-                    label="Service"
-                    variant="outlined"
-                    density="compact"
-                    :rules="[requiredRule]"
-                  />
-                </v-col>
                 <v-col cols="12" md="3">
 	                  <v-select
 	                    v-model="realisationForm.compte_id"
@@ -467,7 +436,6 @@ const budgetStore = useBudgetStore()
 const {
   annee,
   previsions,
-  services,
 	  comptes,
 	  comptesSaisissables,
 	  investissements,
@@ -488,19 +456,16 @@ const {
 
 // --- Filtres ---
 const filters = reactive({
-  serviceId: null,
   compteId: null,
   mois: null
 })
 
 const onFiltersChange = (f) => {
-  filters.serviceId = f.serviceId
   filters.compteId = f.compteId
   filters.mois = f.mois
 }
 
 const hasActiveFilter = computed(() =>
-  filters.serviceId != null ||
   filters.compteId != null ||
   filters.mois != null
 )
@@ -509,10 +474,6 @@ const activeMois = computed(() => filters.mois ?? new Date().getMonth() + 1)
 
 const applyServiceCompteFilter = (rows) => {
   return rows.filter((row) => {
-    if (filters.serviceId != null && Number(row.service_id) !== Number(filters.serviceId)) {
-      return false
-    }
-
     if (!matchesCompteFilter(row, filters.compteId, comptes.value)) {
       return false
     }
@@ -555,7 +516,6 @@ const realisationFormRef = ref(null)
 const investmentFormRef = ref(null)
 
 const previsionForm = reactive({
-  service_id: null,
   compte_id: null,
   montant_prevu: null,
   mois: new Date().getMonth() + 1,
@@ -563,7 +523,6 @@ const previsionForm = reactive({
 })
 
 const realisationForm = reactive({
-  service_id: null,
   compte_id: null,
   montant_realise: null,
   mois: new Date().getMonth() + 1,
@@ -582,7 +541,6 @@ const investmentForm = reactive({
 })
 
 const budgetHeaders = [
-  { title: 'Service', key: 'service' },
   { title: 'Compte', key: 'compte' },
   { title: 'Prévu', key: 'montant_prevu', align: 'end' },
   { title: 'Réalisé', key: 'montant_realise', align: 'end' },
@@ -633,7 +591,6 @@ const formatDrci = (value, label = null) => {
   return label || `${Math.round(Number(value) * 100) / 100} ans`
 }
 
-const serviceTitle = (item) => item ? `${item.code} - ${item.intitule}` : ''
 const compteTitle = (item) => item ? `${item.numero} - ${item.intitule}` : ''
 
 const getRateColor = (value) => {
@@ -644,7 +601,6 @@ const getRateColor = (value) => {
 }
 
 const resetPrevisionForm = () => {
-  previsionForm.service_id = null
   previsionForm.compte_id = null
   previsionForm.montant_prevu = null
   previsionForm.mois = new Date().getMonth() + 1
@@ -652,7 +608,6 @@ const resetPrevisionForm = () => {
 }
 
 const resetRealisationForm = () => {
-  realisationForm.service_id = null
   realisationForm.compte_id = null
   realisationForm.montant_realise = null
   realisationForm.mois = new Date().getMonth() + 1

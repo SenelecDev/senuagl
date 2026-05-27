@@ -11,7 +11,6 @@ class Realisation extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'service_id',
         'compte_id',
         'montant_realise',
         'mois',
@@ -32,14 +31,6 @@ class Realisation extends Model
     }
 
     /**
-     * @return BelongsTo<Service, $this>
-     */
-    public function service(): BelongsTo
-    {
-        return $this->belongsTo(Service::class, 'service_id');
-    }
-
-    /**
      * @return BelongsTo<Compte, $this>
      */
     public function compte(): BelongsTo
@@ -53,7 +44,6 @@ class Realisation extends Model
     public function previsionAssociee(): ?BudgetPrevision
     {
         return BudgetPrevision::query()
-            ->where('service_id', $this->service_id)
             ->where('compte_id', $this->compte_id)
             ->where('annee', $this->annee)
             ->first();

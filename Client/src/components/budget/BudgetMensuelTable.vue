@@ -5,61 +5,54 @@
         <thead>
           <tr>
             <th class="section-heading" colspan="2">{{ title }}</th>
-            <th
-              v-for="service in visibleServices"
-              :key="service.id"
-              class="service-heading"
-              colspan="4"
-            >
-              {{ service.code }}
-            </th>
+            <th class="service-heading" colspan="4">Général</th>
           </tr>
           <tr>
             <th class="account-number">N° comptes</th>
             <th class="account-label">Intitulé</th>
-            <template v-for="service in visibleServices" :key="`cols-${service.id}`">
-              <th class="amount-col">Prévision</th>
-              <th class="amount-col">Réalisation</th>
-              <th class="amount-col">Écart</th>
-              <th class="observation-col">Observation</th>
-            </template>
+            <th class="amount-col">Prévision</th>
+            <th class="amount-col">Réalisation</th>
+            <th class="amount-col">Écart</th>
+            <th class="observation-col">Observation</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in rows" :key="row.key">
-            <td class="account-number">{{ row.compte?.numero || 'N/A' }}</td>
+          <tr
+            v-for="row in rows"
+            :key="row.key"
+            :class="{ 'section-row': row.is_section }"
+          >
+            <td class="account-number">{{ getCompteNumero(row) }}</td>
             <td class="account-label">{{ row.compte?.intitule || '' }}</td>
-            <template v-for="service in visibleServices" :key="`${row.key}-${service.id}`">
               <td
                 class="amount-col editable"
-                @dblclick="startEdit(row, service.id)"
-                :class="{ editing: isEditing(row, service.id) }"
+                @dblclick="startEdit(row)"
+                :class="{ editing: isEditing(row) }"
               >
                 <input
-                  v-if="isEditing(row, service.id)"
+                  v-if="isEditing(row)"
                   :value="editValue"
-                  @blur="saveEdit(row, service.id)"
-                  @keydown.enter="saveEdit(row, service.id)"
+                  @blur="saveEdit(row)"
+                  @keydown.enter="saveEdit(row)"
                   @keydown.escape="cancelEdit"
                   type="number"
                   class="edit-input"
                   ref="editInput"
                   autofocus
                 />
-                <span v-else>{{ formatNumber(getPrevision(row, service.id)) }}</span>
+                <span v-else>{{ formatNumber(getPrevision(row)) }}</span>
               </td>
-              <td class="amount-col">{{ formatNumber(getRealisation(row, service.id)) }}</td>
-              <td class="amount-col">{{ formatNumber(getEcart(row, service.id)) }}</td>
+              <td class="amount-col">{{ formatNumber(getRealisation(row)) }}</td>
+              <td class="amount-col">{{ formatNumber(getEcart(row)) }}</td>
               <td
                 class="observation-col"
-                :class="getEcart(row, service.id) >= 0 ? 'observation-ok' : 'observation-neg'"
+                :class="getEcart(row) >= 0 ? 'observation-ok' : 'observation-neg'"
               >
-                {{ getEcart(row, service.id) >= 0 ? 'FAVORABLE' : 'DÉFAVORABLE' }}
+                {{ getEcart(row) >= 0 ? 'FAVORABLE' : 'DÉFAVORABLE' }}
               </td>
-            </template>
           </tr>
           <tr v-if="rows.length === 0">
-            <td :colspan="2 + visibleServices.length * 4" class="empty-row">
+            <td colspan="6" class="empty-row">
               Aucune donnée budgétaire.
             </td>
           </tr>
@@ -75,65 +68,48 @@ import api from '@/api/axios'
 
 const props = defineProps({
   rows: { type: Array, default: () => [] },
-  services: { type: Array, default: () => [] },
   mois: { type: Number, default: 1 },
-  serviceId: { type: [Number, String], default: null },
   title: { type: String, default: "CHARGES D'EXPLOITATION" },
   annee: { type: Number, default: new Date().getFullYear() }
 })
 
 const emit = defineEmits(['prevision-updated'])
 
-const SERVICE_ORDER = ['SGB', 'SGS', 'SA', 'SEG', 'SA2']
 
-const editingCell = ref(null)
-const editValue = ref('')
-const editInput = ref(null)
 
-const sortServices = (a, b) => {
-  const aIndex = SERVICE_ORDER.indexOf(String(a.code || ''))
-  const bIndex = SERVICE_ORDER.indexOf(String(b.code || ''))
+const isSectionRow = (row) => row.is_section || String(row.compte?.numero || '').startsWith('SECTION-')
 
-  if (aIndex !== -1 || bIndex !== -1) {
-    return (aIndex === -1 ? SERVICE_ORDER.length : aIndex) -
-      (bIndex === -1 ? SERVICE_ORDER.length : bIndex)
-  }
-
-  return String(a.code || '').localeCompare(String(b.code || ''))
+const getCompteNumero = (row) => {
+  if (isSectionRow(row)) return ''
+  return row.compte?.numero || 'N/A'
 }
 
-const visibleServices = computed(() => {
-  const sortedServices = [...props.services].sort(sortServices)
+const getPrevision = (row) => Number(row.previsions?.[Number(props.mois)] || 0)
 
-  if (props.serviceId == null) return sortedServices
+const getRealisation = (row) => Number(row.mois?.[Number(props.mois)] || 0)
 
-  return sortedServices.filter((service) => Number(service.id) === Number(props.serviceId))
-})
-
-const getServiceValues = (row, serviceId) => row.services?.[Number(serviceId)] || {}
-
-const getPrevision = (row, serviceId) =>
-  Number(getServiceValues(row, serviceId).previsions?.[Number(props.mois)] || 0)
-
-const getRealisation = (row, serviceId) =>
-  Number(getServiceValues(row, serviceId).mois?.[Number(props.mois)] || 0)
-
-const getEcart = (row, serviceId) => getPrevision(row, serviceId) - getRealisation(row, serviceId)
+const getEcart = (row) => getPrevision(row) - getRealisation(row)
 
 const formatNumber = (value) =>
   new Intl.NumberFormat('fr-FR', {
     maximumFractionDigits: 0
   }).format(Math.round(Number(value || 0)))
 
-const isEditing = (row, serviceId) => {
-  return editingCell.value && 
-    editingCell.value.rowKey === row.key && 
-    editingCell.value.serviceId === serviceId
+const editingCell = ref(null)
+const editValue = ref('')
+const editInput = ref(null)
+
+const isEditing = (row) => {
+  return editingCell.value && editingCell.value.rowKey === row.key
 }
 
-const startEdit = (row, serviceId) => {
-  editingCell.value = { rowKey: row.key, serviceId }
-  editValue.value = getPrevision(row, serviceId)
+const startEdit = (row) => {
+  if (row.is_regroupement || isSectionRow(row)) {
+    return
+  }
+
+  editingCell.value = { rowKey: row.key }
+  editValue.value = getPrevision(row)
   
   setTimeout(() => {
     if (editInput.value) {
@@ -148,12 +124,11 @@ const cancelEdit = () => {
   editValue.value = ''
 }
 
-const saveEdit = async (row, serviceId) => {
+const saveEdit = async (row) => {
   const newValue = Number(editValue.value)
-  const service = props.services.find(s => s.id === serviceId)
   
-  if (!service || !row.compte) {
-    console.error('Données manquantes:', { service, compte: row.compte })
+  if (!row.compte) {
+    console.error('Données manquantes:', { compte: row.compte })
     alert('Données manquantes pour la sauvegarde')
     cancelEdit()
     return
@@ -161,7 +136,6 @@ const saveEdit = async (row, serviceId) => {
 
   const payload = {
     type: 'prevision',
-    service_id: serviceId,
     compte_id: row.compte.id,
     montant_prevu: newValue,
     annee: props.annee,
@@ -174,18 +148,12 @@ const saveEdit = async (row, serviceId) => {
     const response = await api.post('/budget', payload)
 
     // Mettre à jour les données localement
-    if (!row.services) {
-      row.services = {}
-    }
-    if (!row.services[serviceId]) {
-      row.services[serviceId] = { previsions: {}, mois: {} }
-    }
-    if (!row.services[serviceId].previsions) {
-      row.services[serviceId].previsions = {}
+    if (!row.previsions) {
+      row.previsions = {}
     }
     
     // Forcer la réactivité Vue
-    row.services[serviceId].previsions[props.mois] = newValue
+    row.previsions[props.mois] = newValue
 
     emit('prevision-updated', response.data)
     cancelEdit()
@@ -236,6 +204,17 @@ const saveEdit = async (row, serviceId) => {
   background: #fff;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.section-row td {
+  background: #ccff00;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.section-row .account-number {
+  background: #ccff00;
 }
 
 .section-heading {

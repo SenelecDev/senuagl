@@ -90,8 +90,8 @@
         <v-card class="rounded-lg chart-card" elevation="2">
           <v-card-title class="chart-title">
             <div>
-              <h2>Pyramide des âges H/F</h2>
-              <p>Hommes à gauche, femmes à droite par tranche d'âge.</p>
+              <h2>Âges par tranche</h2>
+              <p>Lecture directe des effectifs hommes/femmes.</p>
             </div>
           </v-card-title>
           <v-card-text>
@@ -118,13 +118,13 @@
         <v-card class="rounded-lg chart-card" elevation="2">
           <v-card-title class="chart-title">
             <div>
-              <h2>Top 8 services</h2>
-              <p>Effectifs et équilibre H/F dans les plus grandes unités.</p>
+              <h2>Plus grandes unités</h2>
+              <p>Effectifs et équilibre H/F présentés sans graphique complexe.</p>
             </div>
             <v-chip color="primary" variant="tonal" size="small">Top 8</v-chip>
           </v-card-title>
           <v-card-text>
-            <div class="chart-box">
+            <div class="chart-box service-chart-box">
               <canvas ref="serviceCanvas"></canvas>
             </div>
           </v-card-text>
@@ -344,6 +344,21 @@ const retirementRate = computed(() => {
   return Math.round((retirementsWithinFiveYears.value / total) * 1000) / 10
 })
 
+const topServices = computed(() => {
+  return [...repartitionHFParService.value]
+    .sort((a, b) => Number(b.total || 0) - Number(a.total || 0))
+    .slice(0, 8)
+    .map((service, index) => ({
+      ...service,
+      rank: index + 1,
+      total: Number(service.total || 0),
+      hommes: Number(service.hommes || 0),
+      femmes: Number(service.femmes || 0),
+      pourcentage_hommes: Number(service.pourcentage_hommes || 0),
+      pourcentage_femmes: Number(service.pourcentage_femmes || 0)
+    }))
+})
+
 const getAge = (date) => {
   if (!date) return 'N/A'
   const birthDate = new Date(date)
@@ -400,6 +415,11 @@ const baseChartOptions = {
   }
 }
 
+const shortenLabel = (label) => {
+  if (!label) return ''
+  return label.length > 18 ? `${label.slice(0, 16)}...` : label
+}
+
 const buildCharts = async () => {
   await nextTick()
   destroyCharts()
@@ -429,7 +449,6 @@ const buildCharts = async () => {
     const labels = Object.keys(pyramideAges.value || {})
     const hommes = labels.map(label => Number(pyramideAges.value[label]?.hommes || 0))
     const femmes = labels.map(label => Number(pyramideAges.value[label]?.femmes || 0))
-    const maxAgeValue = Math.max(...hommes, ...femmes, 1)
 
     ageChart = new Chart(ageCanvas.value, {
       type: 'bar',
@@ -438,41 +457,31 @@ const buildCharts = async () => {
         datasets: [
           {
             label: 'Hommes',
-            data: hommes.map(value => -value),
+            data: hommes,
             backgroundColor: '#008a9b',
-            borderRadius: 6
+            borderRadius: 8,
+            maxBarThickness: 34
           },
           {
             label: 'Femmes',
             data: femmes,
             backgroundColor: '#f59e0b',
-            borderRadius: 6
+            borderRadius: 8,
+            maxBarThickness: 34
           }
         ]
       },
       options: {
         ...baseChartOptions,
-        indexAxis: 'y',
         scales: {
           x: {
-            min: -maxAgeValue,
-            max: maxAgeValue,
-            ticks: {
-              precision: 0,
-              callback: value => Math.abs(value)
-            },
-            grid: {
-              color: context => context.tick.value === 0 ? '#94a3b8' : '#e5e7eb'
-            }
+            grid: { display: false },
+            ticks: { color: '#475569' }
           },
-          y: { grid: { display: false } }
-        },
-        plugins: {
-          ...baseChartOptions.plugins,
-          tooltip: {
-            callbacks: {
-              label: context => `${context.dataset.label}: ${Math.abs(context.parsed.x)}`
-            }
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0, color: '#475569' },
+            grid: { color: '#eef2f7' }
           }
         }
       }
@@ -510,33 +519,56 @@ const buildCharts = async () => {
   }
 
   if (serviceCanvas.value) {
-    const sortedServices = [...repartitionHFParService.value]
-      .sort((a, b) => Number(b.total || 0) - Number(a.total || 0))
-      .slice(0, 8)
+    const services = topServices.value
+    const fullLabels = services.map(item => item.service)
 
     serviceChart = new Chart(serviceCanvas.value, {
       type: 'bar',
       data: {
-        labels: sortedServices.map(item => item.service),
+        labels: fullLabels.map(shortenLabel),
         datasets: [
           {
             label: 'Hommes',
-            data: sortedServices.map(item => item.hommes),
-            backgroundColor: '#008a9b'
+            data: services.map(item => item.hommes),
+            backgroundColor: '#008a9b',
+            borderRadius: 8,
+            stack: 'effectif'
           },
           {
             label: 'Femmes',
-            data: sortedServices.map(item => item.femmes),
-            backgroundColor: '#f59e0b'
+            data: services.map(item => item.femmes),
+            backgroundColor: '#f59e0b',
+            borderRadius: 8,
+            stack: 'effectif'
           }
         ]
       },
       options: {
         ...baseChartOptions,
-        indexAxis: 'y',
         scales: {
-          x: { beginAtZero: true, ticks: { precision: 0 } },
-          y: { grid: { display: false } }
+          x: {
+            stacked: true,
+            grid: { display: false },
+            ticks: {
+              color: '#475569',
+              maxRotation: 0,
+              minRotation: 0
+            }
+          },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            ticks: { precision: 0, color: '#475569' },
+            grid: { color: '#eef2f7' }
+          }
+        },
+        plugins: {
+          ...baseChartOptions.plugins,
+          tooltip: {
+            callbacks: {
+              title: items => fullLabels[items[0]?.dataIndex] || ''
+            }
+          }
         }
       }
     })
@@ -717,6 +749,10 @@ onUnmounted(() => {
   position: relative;
 }
 
+.service-chart-box {
+  height: 360px;
+}
+
 .retirement-toolbar {
   display: flex;
   padding: 0 1rem 1rem;
@@ -767,6 +803,10 @@ onUnmounted(() => {
 
   .mix-cell {
     grid-template-columns: 1fr;
+  }
+
+  .service-chart-box {
+    height: 320px;
   }
 }
 </style>

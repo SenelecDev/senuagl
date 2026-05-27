@@ -120,13 +120,14 @@ test('un agent ayant deja recu un avancement ou promotion cette annee est exclu'
 
     $service = app(PromotionEligibilityService::class);
     
-    // Test GF eligibility
+    // Test GF eligibility (because it was an NR avancement, GF returns 0 since they are excluded)
     $eligiblesGf = $service->listePrioriteGF('U01', 2024);
     expect($eligiblesGf)->toHaveCount(0);
 
-    // Test NR eligibility
+    // Test NR eligibility (they appear in the list with deja_avance = true)
     $eligiblesNr = $service->listePrioriteNR('U01', 2024);
-    expect($eligiblesNr)->toHaveCount(0);
+    expect($eligiblesNr)->toHaveCount(1);
+    expect($eligiblesNr[0]['deja_avance'])->toBeTrue();
 });
 
 test('l API retourne des statistiques de direction avec quotas corrects', function () {

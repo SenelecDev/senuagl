@@ -4,9 +4,36 @@
       <div>
         <p class="budget-kicker">Suivi budgétaire</p>
         <h1>Budget et investissements</h1>
-        <p>Contrôle des prévisions, réalisations et indicateurs d'investissement.</p>
+        <p>Contrôle des prévisions, engagements et réalisations.</p>
       </div>
       <div class="header-actions">
+        <v-btn-toggle v-model="typeBudget" color="primary" variant="outlined" density="compact" class="mr-2" mandatory>
+          <v-btn value="exploitation">Exploitation</v-btn>
+          <v-btn value="investissement_service">Investissement Service</v-btn>
+        </v-btn-toggle>
+        <v-select
+          v-model="periodeType"
+          :items="periodeTypes"
+          item-title="label"
+          item-value="value"
+          label="Périodicité"
+          variant="outlined"
+          density="compact"
+          hide-details
+          class="periode-field"
+        />
+        <v-select
+          v-if="periodeType !== 'annee'"
+          v-model="periodeValue"
+          :items="periodeOptions"
+          item-title="label"
+          item-value="value"
+          label="Période"
+          variant="outlined"
+          density="compact"
+          hide-details
+          class="periode-field"
+        />
         <v-text-field
           v-model.number="selectedYear"
           type="number"
@@ -35,90 +62,104 @@
     />
 
     <section class="metric-grid">
-      <article class="metric-card">
+      <article class="metric-card metric-prevu">
         <div class="metric-top">
           <span>Budget prévu</span>
           <v-icon>mdi-wallet-outline</v-icon>
         </div>
-        <strong>{{ formatMoney(filteredTotalPrevu) }}</strong>
-        <p>Prévisions annuelles{{ hasActiveFilter ? ' (filtré)' : '' }}.</p>
+        <strong>{{ formatMoney(animatedMetrics.prevu) }}</strong>
+        <p>Prévisions{{ hasActiveFilter ? ' (filtré)' : '' }}.</p>
+      </article>
+      <article class="metric-card metric-engage">
+        <div class="metric-top">
+          <span>Engagements</span>
+          <v-icon>mdi-file-document-edit</v-icon>
+        </div>
+        <strong>{{ formatMoney(animatedMetrics.engage) }}</strong>
+        <p>Commandes passées.</p>
       </article>
       <article class="metric-card metric-realise">
         <div class="metric-top">
-          <span>Réalisé</span>
+          <span>Réalisations</span>
           <v-icon>mdi-cash-check</v-icon>
         </div>
-        <strong>{{ formatMoney(filteredTotalRealise) }}</strong>
-        <p>Dépenses réalisées{{ hasActiveFilter ? ' (filtré)' : '' }}.</p>
+        <strong>{{ formatMoney(animatedMetrics.realise) }}</strong>
+        <p>Factures réglées.</p>
       </article>
-      <article class="metric-card" :class="filteredEcart >= 0 ? 'metric-ok' : 'metric-alert'">
+      <article class="metric-card" :class="filteredDisponible >= 0 ? 'metric-ok' : 'metric-alert'">
         <div class="metric-top">
-          <span>Écart prévu - réalisé</span>
-          <v-icon>mdi-chart-timeline-variant</v-icon>
+          <span>Disponible</span>
+          <v-icon>mdi-scale-balance</v-icon>
         </div>
-        <strong>{{ formatMoney(filteredEcart) }}</strong>
-        <p>{{ filteredEcart >= 0 ? 'Marge disponible' : 'Dépassement global' }}.</p>
+        <strong>{{ formatMoney(animatedMetrics.dispo) }}</strong>
+        <p>{{ filteredDisponible >= 0 ? 'Marge restante' : 'Dépassement' }}.</p>
       </article>
       <article class="metric-card metric-rate">
         <div class="metric-top">
-          <span>Taux d'exécution</span>
+          <span>Exécution</span>
           <v-icon>mdi-percent-outline</v-icon>
         </div>
-        <strong>{{ filteredTaux }}%</strong>
-        <p>Réalisé rapporté au prévu.</p>
+        <strong>{{ animatedMetrics.taux }}%</strong>
+        <p>Taux d'exécution global.</p>
       </article>
     </section>
 
     <v-card class="budget-card rounded-lg" elevation="2">
-      <v-tabs v-model="activeTab" color="primary" density="comfortable">
+      <v-tabs v-model="activeTab" color="primary" density="comfortable" class="modern-tabs">
         <v-tab value="suivi">Suivi</v-tab>
-        <v-tab value="mensuel">Mensuel</v-tab>
-        <v-tab value="prevision">Prévision</v-tab>
-        <v-tab value="realisation">Réalisation</v-tab>
-        <v-tab value="investissements">Investissements</v-tab>
+        <v-tab value="prevision">{{ typeBudget === 'exploitation' ? 'Nouvelle Prévision' : 'Nouveau Budget Alloué' }}</v-tab>
+        <v-tab value="engagement">Nouvel Engagement</v-tab>
+        <v-tab value="realisation">Nouvelle Réalisation</v-tab>
+        <v-tab value="projets_travaux">Projets Travaux</v-tab>
+        <v-tab value="investissements">Analyse Investissements</v-tab>
       </v-tabs>
 
       <v-window v-model="activeTab">
         <v-window-item value="suivi">
           <v-card-title class="section-title">
             <div>
-              <h2>Suivi par service et compte</h2>
-              <p>{{ filteredBudgetRows.length }} ligne(s) consolidée(s) pour {{ annee }}{{ hasActiveFilter ? ' (filtré)' : '' }}.</p>
+              <h2>Suivi par section et compte</h2>
+              <p>Période : {{ currentPeriodLabel }} {{ annee }}{{ hasActiveFilter ? ' (filtré par compte)' : '' }}.</p>
             </div>
           </v-card-title>
           <v-data-table
             :headers="budgetHeaders"
             :items="filteredBudgetRows"
             :loading="loading"
-            :items-per-page="10"
-            class="elevation-0"
+            :items-per-page="50"
+            class="elevation-0 budget-table"
             hover
-            no-data-text="Aucune donnée budgétaire pour cette année"
+            no-data-text="Aucune donnée budgétaire pour cette période"
+            @click:row="openRowDetails"
           >
-
-	            <template #item.compte="{ item }">
-	              <div class="account-cell" :class="{ 'is-child': item.niveau > 0 }">
-	                <strong>{{ item.compte?.numero || 'N/A' }}</strong>
-	                <v-chip v-if="item.is_regroupement" size="x-small" color="primary" variant="tonal">
-	                  Regroupement
-	                </v-chip>
-	              </div>
-	              <div class="muted">{{ item.compte?.intitule || '' }}</div>
-	            </template>
+            <template #item.compte="{ item }">
+              <div class="account-cell" :class="{ 'is-child': item.niveau > 0, 'is-section': item.is_regroupement }">
+                <strong :class="{'section-text': item.is_regroupement}">
+                  {{ item.is_regroupement ? (item.compte?.intitule || item.compte?.numero || 'N/A').replace('SECTION-', '').replace(/-/g, ' ').toUpperCase() : (item.compte?.numero || 'N/A') }}
+                </strong>
+                <v-chip v-if="item.is_regroupement" size="x-small" color="primary" variant="tonal" class="ml-2">
+                  Total
+                </v-chip>
+              </div>
+              <div v-if="!item.is_regroupement" class="muted">{{ item.compte?.intitule || '' }}</div>
+            </template>
             <template #item.montant_prevu="{ item }">
-              {{ formatMoney(item.montant_prevu) }}
+              <span :class="{'section-text': item.is_regroupement}">{{ formatMoney(item.montant_prevu) }}</span>
+            </template>
+            <template #item.montant_engage="{ item }">
+              <span :class="{'section-text': item.is_regroupement}">{{ formatMoney(item.montant_engage) }}</span>
             </template>
             <template #item.montant_realise="{ item }">
-              {{ formatMoney(item.montant_realise) }}
+              <span :class="{'section-text': item.is_regroupement}">{{ formatMoney(item.montant_realise) }}</span>
             </template>
-            <template #item.ecart="{ item }">
-              <v-chip :color="item.ecart >= 0 ? 'success' : 'error'" size="small" variant="tonal">
-                {{ formatMoney(item.ecart) }}
+            <template #item.disponible="{ item }">
+              <v-chip :color="item.disponible >= 0 ? 'success' : 'error'" size="small" variant="tonal" class="font-weight-bold">
+                {{ formatMoney(item.disponible) }}
               </v-chip>
             </template>
             <template #item.taux_execution="{ item }">
               <div class="rate-cell">
-                <span>{{ item.taux_execution }}%</span>
+                <span :class="{'section-text': item.is_regroupement}">{{ item.taux_execution }}%</span>
                 <v-progress-linear
                   :model-value="Math.min(Number(item.taux_execution || 0), 130)"
                   :color="getRateColor(item.taux_execution)"
@@ -130,36 +171,19 @@
           </v-data-table>
         </v-window-item>
 
-        <v-window-item value="mensuel">
-          <v-card-title class="section-title">
-            <div>
-              <h2>Vue mensuelle</h2>
-              <p>Prévisions, réalisations et écarts pour {{ activeMonthLabel }} {{ annee }}{{ hasActiveFilter ? ' (filtré)' : '' }}.</p>
-            </div>
-          </v-card-title>
-          <div class="mensuel-container">
-            <BudgetMensuelTable
-              :rows="filteredMensuelPivot"
-              :mois="activeMois"
-              :annee="selectedYear"
-              @prevision-updated="handlePrevisionUpdated"
-            />
-          </div>
-        </v-window-item>
-
         <v-window-item value="prevision">
           <div class="form-panel">
             <div class="form-copy">
-              <h2>Prévision mensuelle</h2>
-              <p>Une seule prévision par service, compte, mois et année. Si elle existe déjà, le montant sera mis à jour.</p>
+              <h2>{{ typeBudget === 'exploitation' ? 'Prévision mensuelle' : 'Nouveau Budget Investissement Service' }}</h2>
+              <p>Une seule prévision par compte et par mois. Si elle existe déjà, le montant sera mis à jour.</p>
             </div>
             <v-form ref="previsionFormRef" @submit.prevent="submitPrevision">
               <v-row>
                 <v-col cols="12" md="3">
-	                  <v-select
-	                    v-model="previsionForm.compte_id"
-	                    :items="comptesSaisissables"
-	                    :item-title="compteTitle"
+                  <v-select
+                    v-model="previsionForm.compte_id"
+                    :items="filteredComptesSaisissables"
+                    :item-title="compteTitle"
                     item-value="id"
                     label="Compte"
                     variant="outlined"
@@ -171,7 +195,7 @@
                 <v-col cols="12" md="2">
                   <v-select
                     v-model.number="previsionForm.mois"
-                    :items="monthOptions"
+                    :items="monthOptionsList"
                     item-title="label"
                     item-value="value"
                     label="Mois"
@@ -210,18 +234,18 @@
           </div>
         </v-window-item>
 
-        <v-window-item value="realisation">
+        <v-window-item value="engagement">
           <div class="form-panel">
             <div class="form-copy">
-              <h2>Nouvelle réalisation</h2>
-              <p>Ajoute une dépense mensuelle constatée pour suivre l'exécution.</p>
+              <h2>Nouvel Engagement</h2>
+              <p>Ajoute une dépense engagée (bon de commande) à une date précise.</p>
             </div>
-            <v-form ref="realisationFormRef" @submit.prevent="submitRealisation">
+            <v-form ref="engagementFormRef" @submit.prevent="submitEngagement">
               <v-row>
                 <v-col cols="12" md="3">
-	                  <v-select
-	                    v-model="realisationForm.compte_id"
-	                    :items="comptesSaisissables"
+                  <v-select
+                    v-model="engagementForm.compte_id"
+                    :items="filteredComptesSaisissables"
                     :item-title="compteTitle"
                     item-value="id"
                     label="Compte"
@@ -230,29 +254,76 @@
                     :rules="[requiredRule]"
                   />
                 </v-col>
-                <v-col cols="12" md="2">
-                  <v-select
-                    v-model.number="realisationForm.mois"
-                    :items="monthOptions"
-                    item-title="label"
-                    item-value="value"
-                    label="Mois"
-                    variant="outlined"
-                    density="compact"
-                    :rules="[requiredRule]"
-                  />
-                </v-col>
-                <v-col cols="12" md="2">
+                <v-col cols="12" md="3">
                   <v-text-field
-                    v-model.number="realisationForm.annee"
-                    type="number"
-                    label="Année"
+                    v-model="engagementForm.date_engagement"
+                    type="date"
+                    label="Date d'engagement"
                     variant="outlined"
                     density="compact"
                     :rules="[requiredRule]"
                   />
                 </v-col>
-                <v-col cols="12" md="2">
+                <v-col cols="12" md="3">
+                  <v-text-field
+                    v-model.number="engagementForm.montant_engage"
+                    type="number"
+                    label="Montant"
+                    variant="outlined"
+                    density="compact"
+                    :rules="[requiredRule, positiveRule]"
+                  />
+                </v-col>
+                <v-col cols="12">
+                  <v-textarea
+                    v-model="engagementForm.observation"
+                    label="Observation / Numéro de BC"
+                    variant="outlined"
+                    density="compact"
+                    rows="2"
+                  />
+                </v-col>
+              </v-row>
+              <div class="form-actions">
+                <v-btn color="primary" :loading="saving" prepend-icon="mdi-content-save-outline" @click="submitEngagement">
+                  Enregistrer
+                </v-btn>
+              </div>
+            </v-form>
+          </div>
+        </v-window-item>
+
+        <v-window-item value="realisation">
+          <div class="form-panel">
+            <div class="form-copy">
+              <h2>Nouvelle Réalisation</h2>
+              <p>Ajoute une dépense constatée (facture réglée) à une date précise.</p>
+            </div>
+            <v-form ref="realisationFormRef" @submit.prevent="submitRealisation">
+              <v-row>
+                <v-col cols="12" md="3">
+                  <v-select
+                    v-model="realisationForm.compte_id"
+                    :items="filteredComptesSaisissables"
+                    :item-title="compteTitle"
+                    item-value="id"
+                    label="Compte"
+                    variant="outlined"
+                    density="compact"
+                    :rules="[requiredRule]"
+                  />
+                </v-col>
+                <v-col cols="12" md="3">
+                  <v-text-field
+                    v-model="realisationForm.date_realisation"
+                    type="date"
+                    label="Date de réalisation"
+                    variant="outlined"
+                    density="compact"
+                    :rules="[requiredRule]"
+                  />
+                </v-col>
+                <v-col cols="12" md="3">
                   <v-text-field
                     v-model.number="realisationForm.montant_realise"
                     type="number"
@@ -265,7 +336,7 @@
                 <v-col cols="12">
                   <v-textarea
                     v-model="realisationForm.observation"
-                    label="Observation"
+                    label="Observation / Référence Facture"
                     variant="outlined"
                     density="compact"
                     rows="2"
@@ -279,6 +350,10 @@
               </div>
             </v-form>
           </div>
+        </v-window-item>
+
+        <v-window-item value="projets_travaux">
+          <ProjetInvestissementTable :annee="selectedYear" />
         </v-window-item>
 
         <v-window-item value="investissements">
@@ -350,7 +425,7 @@
                     </div>
                   </v-col>
                 </v-row>
-                <div class="form-actions">
+                <div class="form-actions mt-4">
                   <v-btn color="primary" :loading="calculating" prepend-icon="mdi-calculator-variant-outline" @click="calculateInvestment">
                     Calculer
                   </v-btn>
@@ -421,6 +496,44 @@
         </v-window-item>
       </v-window>
     </v-card>
+
+    <!-- Historique Ligne Modal -->
+    <v-dialog v-model="showRowDetailsModal" max-width="800px">
+      <v-card>
+        <v-card-title class="d-flex align-center justify-space-between pa-4 bg-primary text-white">
+          <span class="text-h6 font-weight-bold">
+            Historique : {{ selectedRowDetails?.compte?.numero }} - {{ selectedRowDetails?.compte?.intitule }}
+          </span>
+          <v-btn icon="mdi-close" variant="text" color="white" @click="showRowDetailsModal = false"></v-btn>
+        </v-card-title>
+        <v-card-text class="pa-4">
+          <v-data-table
+            :headers="historyHeaders"
+            :items="selectedRowDetails?.history || []"
+            :items-per-page="10"
+            class="elevation-1"
+            density="compact"
+            no-data-text="Aucun historique pour ce compte"
+          >
+            <template #item.type="{ item }">
+              <v-chip :color="getHistoryTypeColor(item.type)" size="small" label>
+                {{ item.type }}
+              </v-chip>
+            </template>
+            <template #item.date="{ item }">
+              {{ formatDate(item.date) }}
+            </template>
+            <template #item.montant="{ item }">
+              <strong>{{ formatMoney(item.montant) }}</strong>
+            </template>
+            <template #item.observation="{ item }">
+              <span class="text-medium-emphasis">{{ item.observation }}</span>
+            </template>
+          </v-data-table>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
   </v-container>
 </template>
 
@@ -428,17 +541,16 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useBudgetStore } from '@/stores/budget'
-import { matchesCompteFilter, rowsForKpi } from '@/utils/budgetHierarchy'
+import { matchesCompteFilter, rowsForKpi, buildCompteIndex, collectDescendantIds } from '@/utils/budgetHierarchy'
 import BudgetFilterBar from '@/components/budget/BudgetFilterBar.vue'
-import BudgetMensuelTable from '@/components/budget/BudgetMensuelTable.vue'
+import ProjetInvestissementTable from '@/components/budget/ProjetInvestissementTable.vue'
 
 const budgetStore = useBudgetStore()
 const {
   annee,
-  previsions,
-	  comptes,
-	  comptesSaisissables,
-	  investissements,
+  comptes,
+  comptesSaisissables,
+  investissements,
   calculation,
   loading,
   loadingRefs,
@@ -446,48 +558,102 @@ const {
   saving,
   calculating,
   error,
-  totalPrevu,
-  totalRealise,
-  ecartGlobal,
-  tauxExecution,
   budgetRows,
-  vuesMensuellesPivot
 } = storeToRefs(budgetStore)
 
-// --- Filtres ---
+// --- Filtres Périodes ---
+const periodeType = ref('annee')
+const periodeValue = ref(null)
+const selectedYear = ref(annee.value)
+
+const periodeTypes = [
+  { label: 'Année entière', value: 'annee' },
+  { label: 'Par Trimestre', value: 'trimestre' },
+  { label: 'Par Mois', value: 'mois' }
+]
+
+const monthOptionsList = [
+  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+].map((label, index) => ({ label, value: index + 1 }))
+
+const quarterOptionsList = [
+  { label: 'Trimestre 1', value: 1 },
+  { label: 'Trimestre 2', value: 2 },
+  { label: 'Trimestre 3', value: 3 },
+  { label: 'Trimestre 4', value: 4 }
+]
+
+const periodeOptions = computed(() => {
+  if (periodeType.value === 'trimestre') return quarterOptionsList
+  if (periodeType.value === 'mois') return monthOptionsList
+  return []
+})
+
+const currentPeriodLabel = computed(() => {
+  if (periodeType.value === 'annee') return 'Année globale'
+  if (periodeType.value === 'trimestre') return `Trimestre ${periodeValue.value}`
+  if (periodeType.value === 'mois') {
+    return monthOptionsList.find(m => m.value === periodeValue.value)?.label || 'Mois'
+  }
+  return ''
+})
+
+watch([periodeType, periodeValue], ([type, value]) => {
+  if (type !== 'annee' && value === null) {
+    periodeValue.value = 1
+  }
+  budgetStore.setPeriode(type, periodeValue.value)
+})
+
+// --- Filtres Comptes ---
 const filters = reactive({
-  compteId: null,
-  mois: null
+  compteId: null
 })
 
 const onFiltersChange = (f) => {
   filters.compteId = f.compteId
-  filters.mois = f.mois
 }
 
-const hasActiveFilter = computed(() =>
-  filters.compteId != null ||
-  filters.mois != null
-)
-
-const activeMois = computed(() => filters.mois ?? new Date().getMonth() + 1)
+const hasActiveFilter = computed(() => filters.compteId != null)
 
 const applyServiceCompteFilter = (rows) => {
   return rows.filter((row) => {
     if (!matchesCompteFilter(row, filters.compteId, comptes.value)) {
       return false
     }
-
     return true
   })
 }
 
-// Suivi table filtré
-const filteredBudgetRows = computed(() => applyServiceCompteFilter(budgetRows.value))
+// --- Filtres Type de Budget ---
+const typeBudget = ref('exploitation')
 
-const filteredMensuelPivot = computed(() =>
-  vuesMensuellesPivot.value.filter((row) => matchesCompteFilter(row, filters.compteId, comptes.value))
-)
+const isCompteType = (compte, type) => {
+  if (!compte || !compte.numero) return false
+  if (type === 'exploitation') {
+    return compte.numero.startsWith('6') || 
+           ['SECTION-AUTRES-ACHATS', 'SECTION-TRANSPORTS', 'SECTION-SERVICES-EXTERIEURS', 'SECTION-CHARGES-PERSONNEL'].includes(compte.numero)
+  } else {
+    return compte.numero.startsWith('2') || 
+           compte.numero === 'SECTION-INVESTISSEMENT-SERVICE'
+  }
+}
+
+const applyTypeFilter = (rows) => {
+  return rows.filter((row) => isCompteType(row.compte, typeBudget.value))
+}
+
+const filteredComptesSaisissables = computed(() => {
+  return comptesSaisissables.value.filter(c => isCompteType(c, typeBudget.value))
+})
+
+// Suivi table filtré
+const filteredBudgetRows = computed(() => {
+  let rows = budgetRows.value
+  rows = applyTypeFilter(rows)
+  return applyServiceCompteFilter(rows)
+})
 
 const kpiSuiviRows = computed(() =>
   rowsForKpi(filteredBudgetRows.value, filters.compteId, comptes.value)
@@ -497,23 +663,71 @@ const kpiSuiviRows = computed(() =>
 const filteredTotalPrevu = computed(() =>
   kpiSuiviRows.value.reduce((sum, row) => sum + (row.montant_prevu ?? 0), 0)
 )
-
+const filteredTotalEngage = computed(() =>
+  kpiSuiviRows.value.reduce((sum, row) => sum + (row.montant_engage ?? 0), 0)
+)
 const filteredTotalRealise = computed(() =>
   kpiSuiviRows.value.reduce((sum, row) => sum + (row.montant_realise ?? 0), 0)
 )
-
-const filteredEcart = computed(() => filteredTotalPrevu.value - filteredTotalRealise.value)
+const filteredDisponible = computed(() => filteredTotalPrevu.value - filteredTotalEngage.value - filteredTotalRealise.value)
 
 const filteredTaux = computed(() => {
   if (!filteredTotalPrevu.value) return 0
-  return Math.round((filteredTotalRealise.value / filteredTotalPrevu.value) * 1000) / 10
+  return Math.round(((filteredTotalEngage.value + filteredTotalRealise.value) / filteredTotalPrevu.value) * 1000) / 10
 })
 
+// --- Animations CountUp ---
+const animatedMetrics = reactive({
+  prevu: 0,
+  engage: 0,
+  realise: 0,
+  dispo: 0,
+  taux: 0
+})
+
+const animateValue = (key, endValue, duration = 1000) => {
+  const startValue = animatedMetrics[key]
+  const startTime = performance.now()
+
+  const step = (currentTime) => {
+    const elapsed = currentTime - startTime
+    const progress = Math.min(elapsed / duration, 1)
+    const easeProgress = 1 - Math.pow(1 - progress, 4)
+    
+    // For rate (taux), keep 1 decimal
+    if (key === 'taux') {
+      animatedMetrics[key] = Math.round((startValue + (endValue - startValue) * easeProgress) * 10) / 10
+    } else {
+      animatedMetrics[key] = Math.round(startValue + (endValue - startValue) * easeProgress)
+    }
+    
+    if (progress < 1) {
+      requestAnimationFrame(step)
+    } else {
+      animatedMetrics[key] = endValue
+    }
+  }
+  
+  requestAnimationFrame(step)
+}
+
+watch([filteredTotalPrevu, filteredTotalEngage, filteredTotalRealise, filteredDisponible, filteredTaux], () => {
+  animateValue('prevu', filteredTotalPrevu.value)
+  animateValue('engage', filteredTotalEngage.value)
+  animateValue('realise', filteredTotalRealise.value)
+  animateValue('dispo', filteredDisponible.value)
+  animateValue('taux', filteredTaux.value)
+}, { immediate: true })
+
+
+// --- Forms & Tabs ---
 const activeTab = ref('suivi')
-const selectedYear = ref(annee.value)
 const previsionFormRef = ref(null)
+const engagementFormRef = ref(null)
 const realisationFormRef = ref(null)
 const investmentFormRef = ref(null)
+
+const getTodayDate = () => new Date().toISOString().split('T')[0]
 
 const previsionForm = reactive({
   compte_id: null,
@@ -522,11 +736,17 @@ const previsionForm = reactive({
   annee: selectedYear.value
 })
 
+const engagementForm = reactive({
+  compte_id: null,
+  montant_engage: null,
+  date_engagement: getTodayDate(),
+  observation: ''
+})
+
 const realisationForm = reactive({
   compte_id: null,
   montant_realise: null,
-  mois: new Date().getMonth() + 1,
-  annee: selectedYear.value,
+  date_realisation: getTodayDate(),
   observation: ''
 })
 
@@ -543,9 +763,17 @@ const investmentForm = reactive({
 const budgetHeaders = [
   { title: 'Compte', key: 'compte' },
   { title: 'Prévu', key: 'montant_prevu', align: 'end' },
+  { title: 'Engagements', key: 'montant_engage', align: 'end' },
   { title: 'Réalisé', key: 'montant_realise', align: 'end' },
-  { title: 'Écart', key: 'ecart', align: 'end' },
+  { title: 'Disponible', key: 'disponible', align: 'end' },
   { title: 'Exécution', key: 'taux_execution', sortable: false }
+]
+
+const historyHeaders = [
+  { title: 'Type', key: 'type' },
+  { title: 'Date', key: 'date' },
+  { title: 'Montant', key: 'montant', align: 'end' },
+  { title: 'Observation', key: 'observation' }
 ]
 
 const investmentHeaders = [
@@ -555,15 +783,6 @@ const investmentHeaders = [
   { title: 'TRI', key: 'tri' },
   { title: 'DRCI', key: 'drci' }
 ]
-
-const monthOptions = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-].map((label, index) => ({ label, value: index + 1 }))
-
-const activeMonthLabel = computed(() =>
-  monthOptions.find((month) => month.value === activeMois.value)?.label || ''
-)
 
 const requiredRule = value => Boolean(value) || 'Champ requis'
 const positiveRule = value => Number(value) >= 0 || 'Montant invalide'
@@ -607,11 +826,17 @@ const resetPrevisionForm = () => {
   previsionForm.annee = selectedYear.value
 }
 
+const resetEngagementForm = () => {
+  engagementForm.compte_id = null
+  engagementForm.montant_engage = null
+  engagementForm.date_engagement = getTodayDate()
+  engagementForm.observation = ''
+}
+
 const resetRealisationForm = () => {
   realisationForm.compte_id = null
   realisationForm.montant_realise = null
-  realisationForm.mois = new Date().getMonth() + 1
-  realisationForm.annee = selectedYear.value
+  realisationForm.date_realisation = getTodayDate()
   realisationForm.observation = ''
 }
 
@@ -622,17 +847,23 @@ const handleYearChange = async () => {
 const submitPrevision = async () => {
   const result = await previsionFormRef.value?.validate()
   if (!result?.valid) return
-
-  await budgetStore.createPrevision({ ...previsionForm })
+  await budgetStore.createEntry({ ...previsionForm }, 'prevision')
   resetPrevisionForm()
+  activeTab.value = 'suivi'
+}
+
+const submitEngagement = async () => {
+  const result = await engagementFormRef.value?.validate()
+  if (!result?.valid) return
+  await budgetStore.createEntry({ ...engagementForm }, 'engagement')
+  resetEngagementForm()
   activeTab.value = 'suivi'
 }
 
 const submitRealisation = async () => {
   const result = await realisationFormRef.value?.validate()
   if (!result?.valid) return
-
-  await budgetStore.createRealisation({ ...realisationForm })
+  await budgetStore.createEntry({ ...realisationForm }, 'realisation')
   resetRealisationForm()
   activeTab.value = 'suivi'
 }
@@ -648,7 +879,6 @@ const removeFluxYear = (index) => {
 const calculateInvestment = async () => {
   const result = await investmentFormRef.value?.validate()
   if (!result?.valid) return
-
   await budgetStore.calculateInvestment({
     montant_initial: investmentForm.montant_initial,
     taux_actualisation: investmentForm.taux_actualisation,
@@ -659,7 +889,6 @@ const calculateInvestment = async () => {
 
 const saveInvestment = async () => {
   if (!calculation.value) return
-
   await budgetStore.createInvestment({
     montant_initial: investmentForm.montant_initial,
     taux_actualisation: investmentForm.taux_actualisation,
@@ -671,12 +900,59 @@ const saveInvestment = async () => {
 
 watch(selectedYear, (value) => {
   previsionForm.annee = value
-  realisationForm.annee = value
 })
 
-const handlePrevisionUpdated = async () => {
-  // Rafraîchir les données du budget après une modification
-  await budgetStore.fetchBudget()
+const showRowDetailsModal = ref(false)
+const selectedRowDetails = ref(null)
+
+const formatDate = (date) => new Date(date).toLocaleDateString('fr-FR')
+
+const getHistoryTypeColor = (type) => {
+  if (type === 'Prévision') return 'primary'
+  if (type === 'Engagement') return 'warning'
+  if (type === 'Réalisation') return 'success'
+  return 'grey'
+}
+
+const openRowDetails = (event, { item }) => {
+  const { childrenByParentId } = buildCompteIndex(budgetStore.comptes)
+  let compteIds = [Number(item.compte_id)]
+  if (item.is_regroupement) {
+    compteIds = Array.from(collectDescendantIds(item.compte_id, childrenByParentId))
+  }
+
+  const previsions = budgetStore.filteredPrevisions.filter(p => compteIds.includes(Number(p.compte_id)))
+  const engagements = budgetStore.filteredEngagements.filter(e => compteIds.includes(Number(e.compte_id)))
+  const realisations = budgetStore.filteredRealisations.filter(r => compteIds.includes(Number(r.compte_id)))
+
+  const history = [
+    ...previsions.map(p => ({
+      type: 'Prévision',
+      date: `${p.annee}-${String(p.mois).padStart(2, '0')}-01`,
+      montant: p.montant_prevu,
+      observation: p.observation || '-'
+    })),
+    ...engagements.map(e => ({
+      type: 'Engagement',
+      date: e.date_engagement,
+      montant: e.montant_engage,
+      observation: e.observation || '-'
+    })),
+    ...realisations.map(r => ({
+      type: 'Réalisation',
+      date: r.date_realisation,
+      montant: r.montant_realise,
+      observation: r.observation || '-'
+    }))
+  ]
+
+  history.sort((a, b) => new Date(b.date) - new Date(a.date))
+  
+  selectedRowDetails.value = {
+    compte: item.compte,
+    history
+  }
+  showRowDetailsModal.value = true
 }
 
 onMounted(async () => {
@@ -689,6 +965,13 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.budget-table {
+  cursor: pointer;
+}
+.budget-table :deep(tbody tr:hover) {
+  background-color: rgba(var(--v-theme-primary), 0.04) !important;
+}
+
 .budget-view {
   display: flex;
   flex-direction: column;
@@ -736,13 +1019,16 @@ onMounted(async () => {
   gap: 0.75rem;
 }
 
+.periode-field {
+  width: 160px;
+}
 .year-field {
-  width: 132px;
+  width: 110px;
 }
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1rem;
 }
 
@@ -753,26 +1039,34 @@ onMounted(async () => {
   justify-content: space-between;
   padding: 1rem;
   border: 1px solid #e5e7eb;
-  border-left: 4px solid #008a9b;
   border-radius: 8px;
-  background: #ffffff;
+  background: linear-gradient(145deg, #ffffff, #f8fafc);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+  border-left: 4px solid #008a9b;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
 }
 
+.metric-prevu {
+  border-left-color: #0ea5e9;
+}
+.metric-engage {
+  border-left-color: #f59e0b;
+}
 .metric-realise {
-  border-left-color: #2563eb;
+  border-left-color: #8b5cf6;
 }
-
 .metric-alert {
   border-left-color: #dc2626;
 }
-
 .metric-ok {
-  border-left-color: #16a34a;
+  border-left-color: #10b981;
 }
-
 .metric-rate {
-  border-left-color: #f59e0b;
+  border-left-color: #008a9b;
 }
 
 .metric-top {
@@ -790,7 +1084,7 @@ onMounted(async () => {
 
 .metric-card strong {
   color: #111827;
-  font-size: 1.75rem;
+  font-size: 1.65rem;
   line-height: 1.1;
 }
 
@@ -811,6 +1105,11 @@ onMounted(async () => {
   padding: 1rem;
 }
 
+.modern-tabs {
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
 .muted {
   color: #64748b;
   font-size: 0.82rem;
@@ -821,9 +1120,15 @@ onMounted(async () => {
   align-items: center;
   gap: 0.5rem;
 }
-
 .account-cell.is-child {
   padding-left: 1rem;
+}
+
+/* Section styling for hierarchy regroupement */
+.section-text {
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 1.05em;
 }
 
 .rate-cell {
@@ -862,11 +1167,9 @@ onMounted(async () => {
   align-items: center;
   gap: 0.75rem;
 }
-
 .flux-header {
   justify-content: space-between;
 }
-
 .flux-row > span {
   width: 72px;
   color: #475569;
@@ -878,26 +1181,22 @@ onMounted(async () => {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
 }
-
 .result-notes {
   display: grid;
   gap: 0.75rem;
   margin-top: 0.9rem;
 }
-
 .result-grid div {
   padding: 0.9rem;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #f8fafc;
 }
-
 .result-grid span {
   display: block;
   color: #64748b;
   font-size: 0.8rem;
 }
-
 .result-grid strong {
   display: block;
   margin-top: 0.35rem;
@@ -905,7 +1204,13 @@ onMounted(async () => {
   font-size: 1.1rem;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
+  .metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
   .metric-grid,
   .investment-grid {
     grid-template-columns: 1fr 1fr;
@@ -919,23 +1224,17 @@ onMounted(async () => {
     align-items: stretch;
     flex-direction: column;
   }
-
   .metric-grid,
   .investment-grid,
   .result-grid {
     grid-template-columns: 1fr;
   }
-
+  .periode-field,
   .year-field {
     width: 100%;
   }
-
   .flux-row > span {
     width: auto;
   }
-}
-
-.mensuel-container {
-  padding: 0 1rem 1rem;
 }
 </style>

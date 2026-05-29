@@ -103,6 +103,7 @@ function rollupToAncestors(row, regroupements, byId, keyBuilder) {
       annee: row.annee,
       compte: parent,
       montant_prevu: 0,
+      montant_engage: 0,
       montant_realise: 0,
       mois: makeEmptyMonths(),
       is_regroupement: true,
@@ -110,6 +111,7 @@ function rollupToAncestors(row, regroupements, byId, keyBuilder) {
     }
 
     existing.montant_prevu += Number(row.montant_prevu || 0)
+    existing.montant_engage += Number(row.montant_engage || 0)
     existing.montant_realise += Number(row.montant_realise || 0)
 
     if (row.mois) {
@@ -130,14 +132,15 @@ function rollupToAncestors(row, regroupements, byId, keyBuilder) {
 
 function finalizeRow(row) {
   const montantPrevu = Number(row.montant_prevu || 0)
+  const montantEngage = Number(row.montant_engage || 0)
   const montantRealise = Number(row.montant_realise || 0)
-  const ecart = montantPrevu - montantRealise
+  const disponible = montantPrevu - montantEngage - montantRealise
 
   return {
     ...row,
-    ecart,
+    disponible,
     taux_execution: montantPrevu
-      ? Math.round((montantRealise / montantPrevu) * 1000) / 10
+      ? Math.round(((montantEngage + montantRealise) / montantPrevu) * 1000) / 10
       : 0
   }
 }
@@ -153,52 +156,133 @@ function finalizeMensuelRow(row) {
     ecart,
     taux_execution: montantPrevu
       ? Math.round((totalRealise / montantPrevu) * 1000) / 10
-      : 0
+      : 0,
+    libelles: row.libelles || []
   }
 }
 
-function sortBudgetRows(a, b) {
+const orderMap = new Map(MONTHLY_REPORT_COMPTES.map((row, index) => [row[0], index]))
 
-  const compteCompare = String(a.compte?.numero || '').localeCompare(String(b.compte?.numero || ''))
-  if (compteCompare !== 0) return compteCompare
+function sortHierarchical(rows) {
+  // Sort rows based on orderMap and then alphabetically
+  rows.sort((a, b) => {
+    const numA = a.compte?.numero || ''
+    const numB = b.compte?.numero || ''
+    const orderA = orderMap.has(numA) ? orderMap.get(numA) : 9999
+    const orderB = orderMap.has(numB) ? orderMap.get(numB) : 9999
+    
+    if (orderA !== orderB) return orderA - orderB
+    return numA.localeCompare(numB)
+  })
 
-  return Number(a.niveau || 0) - Number(b.niveau || 0)
+  const childrenOf = new Map()
+  const roots = []
+
+  rows.forEach(row => {
+    const parentId = row.compte?.parent_id ? Number(row.compte.parent_id) : null
+    if (!parentId) {
+      roots.push(row)
+    } else {
+      if (!childrenOf.has(parentId)) childrenOf.set(parentId, [])
+      childrenOf.get(parentId).push(row)
+    }
+  })
+
+  const finalOrder = []
+  function traverse(row) {
+    const id = Number(row.compte_id)
+    if (childrenOf.has(id)) {
+      childrenOf.get(id).forEach(traverse)
+    }
+    finalOrder.push(row)
+  }
+
+  roots.forEach(traverse)
+  return finalOrder
 }
 
 /**
  * Construit les lignes détail + lignes de regroupement (somme des comptes fils).
  */
-export function buildSuiviRows(previsions, realisations, comptes) {
-  const { byId } = buildCompteIndex(comptes)
+export function buildSuiviRows(previsions, engagements, realisations, comptes, anneeCourante = new Date().getFullYear()) {
+  const { byId, childrenByParentId } = buildCompteIndex(comptes)
   const rows = new Map()
+
+  comptes.forEach((compte) => {
+    if (!childrenByParentId.has(Number(compte.id))) {
+      const key = `${compte.id}-${anneeCourante}`
+      rows.set(key, {
+        key,
+        compte_id: compte.id,
+        annee: anneeCourante,
+        compte,
+        montant_prevu: 0,
+        montant_engage: 0,
+        montant_realise: 0,
+        libelles: []
+      })
+    }
+  })
 
   previsions.forEach((prevision) => {
     const key = `${prevision.compte_id}-${prevision.annee}`
     const compte = byId.get(Number(prevision.compte_id)) || prevision.compte
 
-    rows.set(key, {
+    const existing = rows.get(key) || {
       key,
       compte_id: prevision.compte_id,
       annee: prevision.annee,
       compte,
-      montant_prevu: Number(prevision.montant_prevu || 0),
-      montant_realise: 0
-    })
+      montant_prevu: 0,
+      montant_engage: 0,
+      montant_realise: 0,
+      libelles: []
+    }
+    existing.montant_prevu = Number(prevision.montant_prevu || 0)
+    rows.set(key, existing)
+  })
+
+  engagements.forEach((engagement) => {
+    const annee = new Date(engagement.date_engagement).getFullYear()
+    const key = `${engagement.compte_id}-${annee}`
+    const compte = byId.get(Number(engagement.compte_id)) || engagement.compte
+    const existing = rows.get(key) || {
+      key,
+      compte_id: engagement.compte_id,
+      annee,
+      compte,
+      montant_prevu: 0,
+      montant_engage: 0,
+      montant_realise: 0,
+      libelles: []
+    }
+
+    existing.montant_engage += Number(engagement.montant_engage || 0)
+    if (engagement.observation) {
+      existing.libelles.push(engagement.observation)
+    }
+    rows.set(key, existing)
   })
 
   realisations.forEach((realisation) => {
-    const key = `${realisation.compte_id}-${realisation.annee}`
+    const annee = new Date(realisation.date_realisation).getFullYear()
+    const key = `${realisation.compte_id}-${annee}`
     const compte = byId.get(Number(realisation.compte_id)) || realisation.compte
     const existing = rows.get(key) || {
       key,
       compte_id: realisation.compte_id,
-      annee: realisation.annee,
+      annee,
       compte,
       montant_prevu: 0,
-      montant_realise: 0
+      montant_engage: 0,
+      montant_realise: 0,
+      libelles: []
     }
 
     existing.montant_realise += Number(realisation.montant_realise || 0)
+    if (realisation.observation) {
+      existing.libelles.push(realisation.observation)
+    }
     rows.set(key, existing)
   })
 
@@ -217,7 +301,7 @@ export function buildSuiviRows(previsions, realisations, comptes) {
 
   const regroupementRows = [...regroupements.values()].map(finalizeRow)
 
-  return [...regroupementRows, ...detailRows].sort(sortBudgetRows)
+  return sortHierarchical([...regroupementRows, ...detailRows])
 }
 
 /**

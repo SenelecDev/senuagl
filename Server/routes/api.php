@@ -84,15 +84,22 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Budget & investissements
     Route::get('budget/referentiels', [BudgetController::class, 'referentiels']);
+    Route::post('budget/comptes', [BudgetController::class, 'storeCompte']);
     Route::get('budget', [BudgetController::class, 'index']);
     Route::post('budget', [BudgetController::class, 'store']);
     Route::put('budget/{type}/{id}', [BudgetController::class, 'update'])
-        ->whereIn('type', ['prevision', 'realisation']);
+        ->whereIn('type', ['prevision', 'realisation', 'engagement']);
     Route::delete('budget/{type}/{id}', [BudgetController::class, 'destroy'])
-        ->whereIn('type', ['prevision', 'realisation']);
+        ->whereIn('type', ['prevision', 'realisation', 'engagement']);
 
-    Route::get('investissements', [InvestissementController::class, 'index']);
-    Route::post('investissements', [InvestissementController::class, 'store']);
-    Route::post('investissements/calculate', [InvestissementController::class, 'calculate']);
+    Route::post('/investissements/calculate', [InvestissementController::class, 'calculate']);
+    Route::apiResource('/investissements', InvestissementController::class);
+    
+    // Projet Investissement (Travaux)
+    Route::apiResource('/projet-investissements', App\Http\Controllers\Api\ProjetInvestissementController::class);
+
+    // Agent Actions
+    Route::post('/agents/{agent}/photo', [AgentController::class, 'uploadPhoto']);
+    Route::post('/agents/{agent}/documents', [AgentController::class, 'uploadDocument']);
 
 });

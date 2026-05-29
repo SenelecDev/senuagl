@@ -186,6 +186,10 @@
                   <v-list-item-subtitle>{{ selectedAgent.matricule }}</v-list-item-subtitle>
                 </v-list-item>
                 <v-list-item>
+                  <v-list-item-title>Titre</v-list-item-title>
+                  <v-list-item-subtitle>{{ selectedAgent.titre || 'N/A' }}</v-list-item-subtitle>
+                </v-list-item>
+                <v-list-item>
                   <v-list-item-title>Nom</v-list-item-title>
                   <v-list-item-subtitle>{{ selectedAgent.nom }}</v-list-item-subtitle>
                 </v-list-item>
@@ -200,14 +204,6 @@
                 <v-list-item>
                   <v-list-item-title>Date de Naissance</v-list-item-title>
                   <v-list-item-subtitle>{{ formatDate(selectedAgent.date_naissance) }}</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>Situation Familiale</v-list-item-title>
-                  <v-list-item-subtitle>{{ selectedAgent.situation_familiale || 'N/A' }}</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>Nombre d'Enfants</v-list-item-title>
-                  <v-list-item-subtitle>{{ selectedAgent.nombre_enfants || 0 }}</v-list-item-subtitle>
                 </v-list-item>
               </v-list>
             </v-col>
@@ -239,41 +235,6 @@
                 <v-list-item>
                   <v-list-item-title>NR Actuel</v-list-item-title>
                   <v-list-item-subtitle>{{ selectedAgent.nr_actuel?.id_nr || 'N/A' }}</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>Salaire de Base</v-list-item-title>
-                  <v-list-item-subtitle v-if="selectedAgent.salaire_base">{{ formatCurrency(selectedAgent.salaire_base) }}</v-list-item-subtitle>
-                  <v-list-item-subtitle v-else>N/A</v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
-            </v-col>
-
-            <!-- Informations Bancaires -->
-            <v-col cols="12" md="6">
-              <h3 class="text-subtitle-1 font-weight-bold mb-3">Informations Bancaires</h3>
-              <v-list density="compact">
-                <v-list-item>
-                  <v-list-item-title>Banque</v-list-item-title>
-                  <v-list-item-subtitle>{{ selectedAgent.banque || 'N/A' }}</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>Compte</v-list-item-title>
-                  <v-list-item-subtitle>{{ selectedAgent.compte || 'N/A' }}</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>RIB</v-list-item-title>
-                  <v-list-item-subtitle>{{ selectedAgent.rib || 'N/A' }}</v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
-            </v-col>
-
-            <!-- Autres Informations -->
-            <v-col cols="12" md="6">
-              <h3 class="text-subtitle-1 font-weight-bold mb-3">Autres Informations</h3>
-              <v-list density="compact">
-                <v-list-item>
-                  <v-list-item-title>Titre</v-list-item-title>
-                  <v-list-item-subtitle>{{ selectedAgent.titre || 'N/A' }}</v-list-item-subtitle>
                 </v-list-item>
                 <v-list-item>
                   <v-list-item-title>Statut</v-list-item-title>
@@ -345,12 +306,6 @@
               <v-col cols="12" md="3">
                 <v-text-field v-model="form.nationalite" label="Nationalité" variant="outlined" density="compact"></v-text-field>
               </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model="form.ethnie" label="Ethnie" variant="outlined" density="compact"></v-text-field>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model="form.religion" label="Religion" variant="outlined" density="compact"></v-text-field>
-              </v-col>
 
               <v-col cols="12">
                 <h3 class="text-subtitle-1 font-weight-bold mb-3">Poste</h3>
@@ -395,62 +350,6 @@
               </v-col>
               <v-col cols="12" md="3">
                 <v-text-field v-model="form.centre_de_responsabilite" label="Centre de responsabilité" variant="outlined" density="compact"></v-text-field>
-              </v-col>
-
-              <v-col cols="12">
-                <h3 class="text-subtitle-1 font-weight-bold mb-3">Famille et paie</h3>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model="form.situation_familiale" label="Situation familiale" variant="outlined" density="compact"></v-text-field>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model.number="form.nombre_enfants" label="Nombre d'enfants" type="number" min="0" variant="outlined" density="compact"></v-text-field>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model.number="form.enfants_21_ans" label="Enfants 21 ans" type="number" min="0" variant="outlined" density="compact"></v-text-field>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model.number="form.enfants_18_ans" label="Enfants 18 ans" type="number" min="0" variant="outlined" density="compact"></v-text-field>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model.number="form.salaire_base" label="Salaire de base" type="number" min="0" variant="outlined" density="compact"></v-text-field>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model="form.mode_reglement" label="Mode de règlement" variant="outlined" density="compact"></v-text-field>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-checkbox v-model="form.part_trimf" label="Part TRIMF" density="compact" hide-details></v-checkbox>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-checkbox v-model="form.part_ir" label="Part IR" density="compact" hide-details></v-checkbox>
-              </v-col>
-
-              <v-col cols="12">
-                <h3 class="text-subtitle-1 font-weight-bold mb-3">Informations complémentaires</h3>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model="form.banque" label="Banque" variant="outlined" density="compact"></v-text-field>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model="form.compte" label="Compte" variant="outlined" density="compact"></v-text-field>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model="form.rib" label="RIB" variant="outlined" density="compact"></v-text-field>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model="form.domiciliation" label="Domiciliation" variant="outlined" density="compact"></v-text-field>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model="form.num_identite" label="Numéro identité" variant="outlined" density="compact"></v-text-field>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model="form.num_ipres" label="Numéro IPRES" variant="outlined" density="compact"></v-text-field>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model="form.num_secu_social" label="Numéro sécurité sociale" variant="outlined" density="compact"></v-text-field>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field v-model="form.situation_affectation" label="Situation d'affectation" variant="outlined" density="compact"></v-text-field>
               </v-col>
               <v-col cols="12" md="3">
                 <v-text-field v-model="form.syndicat" label="Syndicat" variant="outlined" density="compact"></v-text-field>
@@ -500,28 +399,10 @@ const emptyForm = () => ({
   date_naissance: '',
   lieu_naissance: '',
   nationalite: 'Senegalaise',
-  ethnie: '',
-  religion: '',
-  situation_familiale: '',
-  nombre_enfants: 0,
-  enfants_21_ans: 0,
-  enfants_18_ans: 0,
-  part_trimf: false,
-  part_ir: false,
-  num_ipres: '',
-  num_secu_social: '',
   date_embauche: '',
   organisation: '',
   centre_de_responsabilite: '',
   lieu: '',
-  salaire_base: null,
-  mode_reglement: '',
-  banque: '',
-  compte: '',
-  domiciliation: '',
-  rib: '',
-  num_identite: '',
-  situation_affectation: '',
   syndicat: '',
   id_post: '',
   id_gf_actuel: '',
@@ -648,28 +529,10 @@ const fillForm = (agent) => {
     date_naissance: toInputDate(agent.date_naissance),
     lieu_naissance: agent.lieu_naissance || '',
     nationalite: agent.nationalite || 'Senegalaise',
-    ethnie: agent.ethnie || '',
-    religion: agent.religion || '',
-    situation_familiale: agent.situation_familiale || '',
-    nombre_enfants: agent.nombre_enfants ?? 0,
-    enfants_21_ans: agent.enfants_21_ans ?? 0,
-    enfants_18_ans: agent.enfants_18_ans ?? 0,
-    part_trimf: Boolean(agent.part_trimf),
-    part_ir: Boolean(agent.part_ir),
-    num_ipres: agent.num_ipres || '',
-    num_secu_social: agent.num_secu_social || '',
     date_embauche: toInputDate(agent.date_embauche),
     organisation: agent.organisation || '',
     centre_de_responsabilite: agent.centre_de_responsabilite || '',
     lieu: agent.lieu || '',
-    salaire_base: agent.salaire_base ?? null,
-    mode_reglement: agent.mode_reglement || '',
-    banque: agent.banque || '',
-    compte: agent.compte || '',
-    domiciliation: agent.domiciliation || '',
-    rib: agent.rib || '',
-    num_identite: agent.num_identite || '',
-    situation_affectation: agent.situation_affectation || '',
     syndicat: agent.syndicat || '',
     id_post: agent.id_post || agent.poste?.id_post || '',
     id_gf_actuel: agent.id_gf_actuel || agent.gf_actuel?.id_gf || '',

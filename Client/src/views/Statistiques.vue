@@ -35,7 +35,7 @@
             <span class="metric-label">Effectif total</span>
             <v-icon>mdi-account-group-outline</v-icon>
           </div>
-          <strong>{{ repartitionHF.total }}</strong>
+          <strong>{{ animatedMetrics.total }}</strong>
           <span class="metric-note">Agents recensés</span>
         </article>
         <article class="metric-card metric-women">
@@ -43,23 +43,23 @@
             <span class="metric-label">Femmes</span>
             <v-icon>mdi-human-female</v-icon>
           </div>
-          <strong>{{ repartitionHF.femmes.nombre }}</strong>
-          <span class="metric-note">{{ repartitionHF.femmes.pourcentage }}% de l'effectif</span>
+          <strong>{{ animatedMetrics.femmes }}</strong>
+          <span class="metric-note">{{ repartitionHF.femmes?.pourcentage || 0 }}% de l'effectif</span>
         </article>
         <article class="metric-card metric-men">
           <div class="metric-heading">
             <span class="metric-label">Hommes</span>
             <v-icon>mdi-human-male</v-icon>
           </div>
-          <strong>{{ repartitionHF.hommes.nombre }}</strong>
-          <span class="metric-note">{{ repartitionHF.hommes.pourcentage }}% de l'effectif</span>
+          <strong>{{ animatedMetrics.hommes }}</strong>
+          <span class="metric-note">{{ repartitionHF.hommes?.pourcentage || 0 }}% de l'effectif</span>
         </article>
         <article class="metric-card metric-risk">
           <div class="metric-heading">
             <span class="metric-label">Départs sous 5 ans</span>
             <v-icon>mdi-calendar-clock-outline</v-icon>
           </div>
-          <strong>{{ retirementsWithinFiveYears }}</strong>
+          <strong>{{ animatedMetrics.departs }}</strong>
           <span class="metric-note">{{ retirementRate }}% de l'effectif</span>
         </article>
         <article class="metric-card metric-blocked">
@@ -67,7 +67,7 @@
             <span class="metric-label">Agents plafonnés</span>
             <v-icon>mdi-lock-clock-outline</v-icon>
           </div>
-          <strong>{{ agentsPlafonnes.length }}</strong>
+          <strong>{{ animatedMetrics.plafonnes }}</strong>
           <span class="metric-note">Au plafond depuis au moins 3 ans</span>
         </article>
       </section>
@@ -143,7 +143,7 @@
             </v-chip>
           </v-card-title>
 
-          <v-tabs v-model="activeTable" color="primary" density="comfortable">
+          <v-tabs v-model="activeTable" color="primary" density="comfortable" class="modern-tabs">
             <v-tab value="retirements">
               Retraites
               <v-chip class="ml-2" color="warning" variant="tonal" size="x-small">
@@ -161,33 +161,12 @@
 
           <v-window v-model="activeTable">
             <v-window-item value="retirements">
-              <div class="retirement-toolbar">
-                <v-btn-toggle
-                  v-model="activeRetirementHorizon"
-                  color="primary"
-                  density="comfortable"
-                  mandatory
-                  variant="outlined"
-                >
-                  <v-btn
-                    v-for="option in retirementHorizonOptions"
-                    :key="option.value"
-                    :value="option.value"
-                  >
-                    {{ option.label }}
-                    <v-chip class="ml-2" size="x-small" variant="tonal">
-                      {{ option.count }}
-                    </v-chip>
-                  </v-btn>
-                </v-btn-toggle>
-              </div>
-
               <v-data-table
                 :headers="retirementHeaders"
-                :items="selectedRetirements"
+                :items="allRetirements"
                 :items-per-page="6"
                 density="comfortable"
-                :no-data-text="selectedRetirementEmptyText"
+                no-data-text="Aucun départ à la retraite prévu dans les 5 prochaines années"
               >
                 <template #item.nom_complet="{ item }">
                   {{ item.prenom }} {{ item.nom }}
@@ -195,14 +174,14 @@
                 <template #item.poste="{ item }">
                   {{ item.poste?.intitule || 'N/A' }}
                 </template>
-                <template #item.age="{ item }">
-                  {{ item.age ?? getAge(item.date_naissance) }} ans
-                </template>
                 <template #item.date_retraite="{ item }">
                   {{ formatDate(item.date_retraite) }}
+                  <span class="muted-delay ml-1">({{ formatRetirementDelay(item.mois_avant_retraite) }})</span>
                 </template>
-                <template #item.mois_avant_retraite="{ item }">
-                  {{ formatRetirementDelay(item.mois_avant_retraite) }}
+                <template #item.urgence="{ item }">
+                  <v-chip :color="item.horizon_color" size="small" variant="tonal" class="font-weight-bold">
+                    {{ item.horizon_label }}
+                  </v-chip>
                 </template>
               </v-data-table>
             </v-window-item>
@@ -257,7 +236,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch, reactive } from 'vue'
 import { storeToRefs } from 'pinia'
 import Chart from 'chart.js/auto'
 import { useStatistiqueStore } from '@/stores/statistique'
@@ -279,20 +258,27 @@ const ageCanvas = ref(null)
 const retirementCanvas = ref(null)
 const serviceCanvas = ref(null)
 const activeTable = ref('retirements')
-const activeRetirementHorizon = ref('entre_1_et_2_ans')
 
 let genderChart = null
 let ageChart = null
 let retirementChart = null
 let serviceChart = null
 
+// Animated metrics state
+const animatedMetrics = reactive({
+  total: 0,
+  femmes: 0,
+  hommes: 0,
+  departs: 0,
+  plafonnes: 0
+})
+
 const retirementHeaders = [
   { title: 'Matricule', key: 'matricule' },
   { title: 'Agent', key: 'nom_complet' },
   { title: 'Poste', key: 'poste' },
-  { title: 'Age', key: 'age' },
   { title: 'Date retraite', key: 'date_retraite' },
-  { title: 'Échéance', key: 'mois_avant_retraite' }
+  { title: 'Urgence', key: 'urgence' }
 ]
 
 const serviceHeaders = [
@@ -311,24 +297,30 @@ const blockedHeaders = [
   { title: 'Années sans promotion', key: 'annees_sans_promotion' }
 ]
 
-const retirementHorizonOptions = computed(() => {
-  const comptage = departsRetraite.value.comptage || {}
-
-  return [
-    { value: 'moins_1_an', label: 'Sous 1 an', count: Number(comptage.moins_1_an || 0) },
-    { value: 'entre_1_et_2_ans', label: 'Dans 2 ans', count: Number(comptage.entre_1_et_2_ans || 0) },
-    { value: 'entre_2_et_3_ans', label: '2 à 3 ans', count: Number(comptage.entre_2_et_3_ans || 0) },
-    { value: 'entre_3_et_5_ans', label: '3 à 5 ans', count: Number(comptage.entre_3_et_5_ans || 0) }
+const allRetirements = computed(() => {
+  const liste = departsRetraite.value.liste || {}
+  const horizons = [
+    { key: 'moins_1_an', label: '< 1 an', color: '#ef4444' },
+    { key: 'entre_1_et_3_ans', label: '1 à 3 ans', color: '#f59e0b' },
+    { key: 'entre_3_et_5_ans', label: '3 à 5 ans', color: '#0ea5e9' }
   ]
-})
-
-const selectedRetirements = computed(() => {
-  return departsRetraite.value.liste?.[activeRetirementHorizon.value] || []
-})
-
-const selectedRetirementEmptyText = computed(() => {
-  const selected = retirementHorizonOptions.value.find(option => option.value === activeRetirementHorizon.value)
-  return `Aucun agent à afficher pour l'horizon "${selected?.label || 'sélectionné'}"`
+  
+  let result = []
+  horizons.forEach(horizon => {
+    const agents = liste[horizon.key] || []
+    agents.forEach(agent => {
+      // Éviter les doublons potentiels
+      if (!result.some(a => a.matricule === agent.matricule)) {
+        result.push({
+          ...agent,
+          horizon_label: horizon.label,
+          horizon_color: horizon.color
+        })
+      }
+    })
+  })
+  
+  return result.sort((a, b) => a.mois_avant_retraite - b.mois_avant_retraite)
 })
 
 const retirementsWithinFiveYears = computed(() => {
@@ -503,7 +495,7 @@ const buildCharts = async () => {
               comptage.entre_3_et_5_ans || 0,
               comptage.plus_5_ans || 0
             ],
-            backgroundColor: ['#dc2626', '#f59e0b', '#2563eb', '#16a34a'],
+            backgroundColor: ['#ef4444', '#f59e0b', '#0ea5e9', '#008a9b'],
             borderRadius: 6
           }
         ]
@@ -575,9 +567,39 @@ const buildCharts = async () => {
   }
 }
 
+const animateValue = (key, endValue, duration = 1200) => {
+  const startValue = animatedMetrics[key]
+  const startTime = performance.now()
+
+  const step = (currentTime) => {
+    const elapsed = currentTime - startTime
+    const progress = Math.min(elapsed / duration, 1)
+    const easeProgress = 1 - Math.pow(1 - progress, 4) // easeOutQuart
+    
+    animatedMetrics[key] = Math.round(startValue + (endValue - startValue) * easeProgress)
+    
+    if (progress < 1) {
+      requestAnimationFrame(step)
+    } else {
+      animatedMetrics[key] = endValue
+    }
+  }
+  
+  requestAnimationFrame(step)
+}
+
+const triggerAnimations = () => {
+  animateValue('total', Number(repartitionHF.value.total || 0))
+  animateValue('femmes', Number(repartitionHF.value.femmes?.nombre || 0))
+  animateValue('hommes', Number(repartitionHF.value.hommes?.nombre || 0))
+  animateValue('departs', retirementsWithinFiveYears.value)
+  animateValue('plafonnes', agentsPlafonnes.value.length)
+}
+
 watch(loading, (isLoading) => {
   if (!isLoading && !error.value) {
     buildCharts()
+    triggerAnimations()
   }
 })
 
@@ -585,6 +607,7 @@ onMounted(async () => {
   await fetchAll()
   if (!error.value) {
     buildCharts()
+    triggerAnimations()
   }
 })
 
@@ -657,10 +680,16 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 1rem 1.1rem;
   border-radius: 8px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: linear-gradient(145deg, #ffffff, #f8fafc);
+  border: 1px solid rgba(226, 232, 240, 0.8);
   border-left: 4px solid #008a9b;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
 }
 
 .metric-heading {
@@ -717,8 +746,19 @@ onUnmounted(() => {
 
 .chart-card,
 .insight-card {
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05) !important;
+  background: linear-gradient(145deg, #ffffff, #f8fafc);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01) !important;
+}
+
+.modern-tabs {
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.muted-delay {
+  color: #64748b;
+  font-size: 0.85em;
 }
 
 .chart-title,
@@ -753,16 +793,7 @@ onUnmounted(() => {
   height: 360px;
 }
 
-.retirement-toolbar {
-  display: flex;
-  padding: 0 1rem 1rem;
-  overflow-x: auto;
-}
 
-.retirement-toolbar .v-btn-toggle {
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
 
 .mix-cell {
   display: grid;

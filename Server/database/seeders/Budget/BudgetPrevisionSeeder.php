@@ -4,6 +4,8 @@ namespace Database\Seeders\Budget;
 
 use App\Models\Budget\BudgetPrevision;
 use App\Models\Budget\Compte;
+use App\Models\Budget\Engagement;
+use App\Models\Budget\Realisation;
 use Illuminate\Database\Seeder;
 
 class BudgetPrevisionSeeder extends Seeder
@@ -41,6 +43,16 @@ class BudgetPrevisionSeeder extends Seeder
             BudgetPrevision::query()->updateOrCreate(
                 ['compte_id' => $c618100->id, 'annee' => 2026],
                 ['montant_prevu' => 1_500_000],
+            );
+
+            Engagement::query()->updateOrCreate(
+                ['compte_id' => $c618100->id, 'date_engagement' => '2026-03-15'],
+                ['montant_engage' => 500_000, 'observation' => 'Commande billets']
+            );
+
+            Realisation::query()->updateOrCreate(
+                ['compte_id' => $c618100->id, 'date_realisation' => '2026-03-20'],
+                ['montant_realise' => 200_000, 'observation' => 'Paiement partiel billets']
             );
         }
     }

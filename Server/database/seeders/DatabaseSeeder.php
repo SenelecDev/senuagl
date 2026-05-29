@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Database\Seeders\Budget\BudgetPrevisionSeeder;
 use Database\Seeders\Budget\CompteSeeder;
+use Database\Seeders\Budget\ProjetInvestissementSeeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -38,6 +39,7 @@ class DatabaseSeeder extends Seeder
             PromotionAndAvancementSeeder::class,
             CompteSeeder::class,
             BudgetPrevisionSeeder::class,
+            ProjetInvestissementSeeder::class,
         ]);
     }
 }

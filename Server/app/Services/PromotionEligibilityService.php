@@ -366,8 +366,11 @@ class PromotionEligibilityService
      */
     private function getNoteAppreciation($matriculeAgent, $annee): ?int
     {
+        // La note considérée pour une promotion/avancement l'année N
+        // est la dernière note obtenue avant l'année N (généralement N-1).
         $note = NoteAppreciation::where('matricule_agent', $matriculeAgent)
-            ->where('annee', $annee)
+            ->where('annee', '<', $annee)
+            ->orderBy('annee', 'desc')
             ->first();
 
         return $note?->note;

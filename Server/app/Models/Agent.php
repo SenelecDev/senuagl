@@ -14,12 +14,9 @@ class Agent extends Model
     
     protected $fillable = [
         'matricule', 'titre', 'nom', 'prenom', 'sexe',
-        'date_naissance', 'lieu_naissance', 'nationalite', 'num_identite', 'ethnie', 'religion',
-        'situation_familiale', 'nombre_enfants', 'enfants_21_ans', 'enfants_18_ans',
-        'part_trimf', 'part_ir', 'num_ipres', 'num_secu_social',
+        'date_naissance', 'lieu_naissance', 'nationalite',
         'date_embauche', 'organisation', 'centre_de_responsabilite', 'lieu',
-        'salaire_base', 'mode_reglement', 'banque', 'compte', 'domiciliation', 'rib',
-        'syndicat', 'situation_affectation',
+        'syndicat',
         'id_post', 'id_gf_actuel', 'id_nr_actuel'
     ];
     

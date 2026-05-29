@@ -35,8 +35,6 @@
                     <p><strong>Date de naissance :</strong> {{ formatDate(agent.date_naissance) }}</p>
                     <p><strong>Lieu de naissance :</strong> {{ agent.lieu_naissance || 'N/A' }}</p>
                     <p><strong>Nationalité :</strong> {{ agent.nationalite || 'N/A' }}</p>
-                    <p><strong>Situation familiale :</strong> {{ agent.situation_familiale || 'N/A' }}</p>
-                    <p><strong>Nombre d'enfants :</strong> {{ agent.nombre_enfants ?? 0 }}</p>
                   </v-sheet>
                 </v-col>
 
@@ -58,8 +56,6 @@
                         <h3 class="text-subtitle-1 font-weight-bold mb-3">Rémunération</h3>
                         <p><strong>GF actuel :</strong> {{ agent.gf_actuel?.ordre || 'N/A' }}</p>
                         <p><strong>NR actuel :</strong> {{ agent.nr_actuel?.ordre || 'N/A' }}</p>
-                        <p><strong>Salaire de base :</strong> {{ formatCurrency(agent.salaire_base) }}</p>
-                        <p><strong>Mode de règlement :</strong> {{ agent.mode_reglement || 'N/A' }}</p>
                         <p><strong>Statut :</strong> {{ agent.statut || 'N/A' }}</p>
                       </v-sheet>
                     </v-col>
@@ -67,27 +63,7 @@
                 </v-col>
               </v-row>
 
-              <v-row class="mb-6" dense>
-                <v-col cols="12" md="6">
-                  <v-sheet class="pa-4 rounded-lg elevation-1">
-                    <h3 class="text-subtitle-1 font-weight-bold mb-3">Informations bancaires</h3>
-                    <p><strong>Banque :</strong> {{ agent.banque || 'N/A' }}</p>
-                    <p><strong>Compte :</strong> {{ agent.compte || 'N/A' }}</p>
-                    <p><strong>Domiciliation :</strong> {{ agent.domiciliation || 'N/A' }}</p>
-                    <p><strong>RIB :</strong> {{ agent.rib || 'N/A' }}</p>
-                  </v-sheet>
-                </v-col>
 
-                <v-col cols="12" md="6">
-                  <v-sheet class="pa-4 rounded-lg elevation-1">
-                    <h3 class="text-subtitle-1 font-weight-bold mb-3">Autres informations</h3>
-                    <p><strong>Numéro identité :</strong> {{ agent.num_identite || 'N/A' }}</p>
-                    <p><strong>Ethnie :</strong> {{ agent.ethnie || 'N/A' }}</p>
-                    <p><strong>Religion :</strong> {{ agent.religion || 'N/A' }}</p>
-                    <p><strong>Situation d'affectation :</strong> {{ agent.situation_affectation || 'N/A' }}</p>
-                  </v-sheet>
-                </v-col>
-              </v-row>
 
               <v-sheet class="pa-4 rounded-lg elevation-1">
                 <h3 class="text-subtitle-1 font-weight-bold mb-4">Historique des avancements</h3>

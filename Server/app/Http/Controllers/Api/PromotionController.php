@@ -236,9 +236,10 @@ class PromotionController extends Controller
 
         $annee = Carbon::parse($validated['date'])->year;
 
-        // 1. Vérifier la note d'appréciation pour l'année
+        // 1. Vérifier la note d'appréciation pour l'année (dernière note avant l'année de promotion)
         $note = NoteAppreciation::where('matricule_agent', $agent->matricule)
-            ->where('annee', $annee)
+            ->where('annee', '<', $annee)
+            ->orderBy('annee', 'desc')
             ->first();
         if (!$note || $note->note <= PromotionEligibilityService::SEUIL_PROMOTION_GF) {
             return response()->json(['error' => 'L\'agent n\'a pas une note d\'appréciation suffisante (> 75) pour l\'année ' . $annee . '.'], 422);
@@ -291,9 +292,10 @@ class PromotionController extends Controller
 
         $annee = Carbon::parse($validated['date'])->year;
 
-        // 1. Vérifier la note d'appréciation pour l'année
+        // 1. Vérifier la note d'appréciation pour l'année (dernière note avant l'année d'avancement)
         $note = NoteAppreciation::where('matricule_agent', $agent->matricule)
-            ->where('annee', $annee)
+            ->where('annee', '<', $annee)
+            ->orderBy('annee', 'desc')
             ->first();
         if (!$note || $note->note <= PromotionEligibilityService::SEUIL_AVANCEMENT_NR) {
             return response()->json(['error' => 'L\'agent n\'a pas une note d\'appréciation suffisante (> 50) pour l\'année ' . $annee . '.'], 422);

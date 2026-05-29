@@ -33,6 +33,16 @@ class CompteSeeder extends Seeder
 
             ['numero' => 'SECTION-CHARGES-PERSONNEL', 'intitule' => 'CHARGES DE PERSONNEL'],
             ['numero' => '661.101', 'intitule' => 'Heures Supplémentaires', 'parent' => 'SECTION-CHARGES-PERSONNEL'],
+
+            // Investissement Service
+            ['numero' => 'SECTION-INVESTISSEMENT-SERVICE', 'intitule' => 'INVESTISSEMENT SERVICE'],
+            ['numero' => '244100', 'intitule' => 'Materiel de bureau', 'parent' => 'SECTION-INVESTISSEMENT-SERVICE'],
+            ['numero' => '244200', 'intitule' => 'Materiel informatique', 'parent' => 'SECTION-INVESTISSEMENT-SERVICE'],
+            ['numero' => '241200', 'intitule' => 'Materiel et outillage specifique', 'parent' => 'SECTION-INVESTISSEMENT-SERVICE'],
+            ['numero' => '244400', 'intitule' => 'Mobilier de bureau', 'parent' => 'SECTION-INVESTISSEMENT-SERVICE'],
+            ['numero' => '244500', 'intitule' => 'Materiel de telecommunication', 'parent' => 'SECTION-INVESTISSEMENT-SERVICE'],
+            ['numero' => '213000', 'intitule' => 'Logiciels', 'parent' => 'SECTION-INVESTISSEMENT-SERVICE'],
+            ['numero' => '244300', 'intitule' => 'Materiel teleinformatique', 'parent' => 'SECTION-INVESTISSEMENT-SERVICE'],
         ];
 
         $numeros = collect($comptes)->pluck('numero')->all();

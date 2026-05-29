@@ -1,15 +1,36 @@
-# Projet UAGL
+# Application UAGL (Unité Administration Gestion Logistique)
 
-Application **full stack** : API **Laravel** (`Server/`), interface **Vue 3 + Vite** (`Client/`), base **PostgreSQL**. L’environnement de développement est fourni via **Docker Compose**.
+L'application **UAGL** est une solution complète développée pour l'Unité Administration Gestion Logistique. 
+Elle permet d'avoir une vision globale et détaillée sur la gestion des ressources humaines et le suivi budgétaire de la DSI.
+
+## 🌟 Fonctionnalités Principales
+
+- **Gestion des Agents de la DSI :** 
+  - Suivi détaillé des agents (répartition par direction, poste, sexe).
+  - Identification et suivi des personnes faisant valoir leurs droits à la retraite.
+  - Gestion centralisée des avancements et des promotions.
+- **Statistiques et Tableaux de bord :** Visualisation dynamique des indicateurs clés (KPI) et statistiques RH de la DSI.
+- **Suivi Budgétaire :**
+  - **Budget d'Exploitation :** Suivi rigoureux des prévisions, engagements et réalisations avec calcul automatique du taux d'exécution et du disponible.
+  - **Budget d'Investissement :** Suivi des projets et investissements avec des outils d'analyse financière poussés (calcul automatique de la **VAN** et du **TRI**).
+- **Interface Master-Detail :** Exploration fine (drill-down) de l'historique budgétaire compte par compte.
+
+## 🛠 Stack Technique
+
+Application **full stack** :
+- **Backend (API) :** Laravel (`Server/`)
+- **Frontend (Interface) :** Vue 3 + Vite + Pinia (`Client/`)
+- **Base de données :** PostgreSQL
+- **Environnement de développement :** Docker Compose
 
 ---
 
-## Prérequis
+## 🚀 Prérequis
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (ou Docker Engine + plugin Compose)
 - Optionnel : `make` pour utiliser le `Makefile` à la racine
 
-La commande utilisée par défaut est `docker compose`. Si ton installation ne fournit que l’ancienne CLI, utilise par exemple :
+La commande utilisée par défaut est `docker compose`. Si ton installation ne fournit que l'ancienne CLI, utilise par exemple :
 
 ```bash
 make DC="docker-compose" up
@@ -19,7 +40,7 @@ make DC="docker-compose" up
 
 ---
 
-## Démarrage rapide
+## ⚙️ Démarrage rapide
 
 À la racine du dépôt :
 
@@ -27,11 +48,11 @@ make DC="docker-compose" up
 docker compose up -d --build
 ```
 
-Le conteneur **server** installe automatiquement les dépendances Composer dans le volume `server_vendor` au démarrage (indispensable après un clone, car **`vendor/` n’est pas versionné**). Le **premier** `docker compose build` peut prendre plusieurs minutes (compilation des extensions PHP `pdo_pgsql`, etc.) selon la machine et le réseau.
+Le conteneur **server** installe automatiquement les dépendances Composer dans le volume `server_vendor` au démarrage (indispensable après un clone, car **`vendor/` n'est pas versionné**). Le **premier** `docker compose build` peut prendre plusieurs minutes (compilation des extensions PHP `pdo_pgsql`, etc.) selon la machine et le réseau.
 
-Le premier `composer install` **dans le conteneur** peut aussi prendre longtemps (téléchargement Packagist) : le port 8000 ne répond que **après**. Suivre : `docker compose logs -f server`. Pour le Makefile : `make wait-backend` ou `make init` (qui attend déjà l’API, jusqu’à ~7–8 minutes par défaut).
+Le premier `composer install` **dans le conteneur** peut aussi prendre longtemps (téléchargement Packagist) : le port 8000 ne répond que **après**. Suivre : `docker compose logs -f server`. Pour le Makefile : `make wait-backend` ou `make init` (qui attend déjà l'API, jusqu'à ~7–8 minutes par défaut).
 
-Ensuite **initialisation une seule fois** (`.env`, clé d’application, migrations + seed, dépendances npm côté client) :
+Ensuite **initialisation une seule fois** (`.env`, clé d'application, migrations + seed, dépendances npm côté client) :
 
 ```bash
 make init
@@ -56,7 +77,7 @@ docker compose exec client npm install
 
 ---
 
-## Makefile (`make`)
+## 🛠 Makefile (`make`)
 
 Résumé des cibles utiles :
 
@@ -80,7 +101,7 @@ Voir `make help` pour la liste complète.
 
 ---
 
-## Services Docker
+## 🐳 Services Docker
 
 Définis dans `docker-compose.yml` :
 
@@ -90,7 +111,7 @@ Définis dans `docker-compose.yml` :
 | `server` | Laravel (`php artisan serve` sur le port 8000) |
 | `client` | Vite (`npm run dev` sur le port 5173) |
 
-Le réseau interne expose aussi l’alias DNS **`database`** vers le même conteneur que `db` (compatibilité avec d’anciennes configs).
+Le réseau interne expose aussi l'alias DNS **`database`** vers le même conteneur que `db` (compatibilité avec d'anciennes configs).
 
 ### Variables de base de données (recommandé)
 
@@ -98,13 +119,13 @@ Dans `Server/.env`, pour coller à Compose :
 
 - `DB_CONNECTION=pgsql`
 - `DB_HOST=db`  
-  (ou `database` grâce à l’alias réseau)
+  (ou `database` grâce à l'alias réseau)
 - `DB_PORT=5432`
 - `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` doivent correspondre à ceux du service `db`.
 
-Le service `server` charge explicitement `Server/.env` via `env_file` dans `docker-compose.yml`. Donc c’est bien ce fichier qui fait foi (plus d’override silencieux des variables DB par Compose).
+Le service `server` charge explicitement `Server/.env` via `env_file` dans `docker-compose.yml`. Donc c'est bien ce fichier qui fait foi (plus d'override silencieux des variables DB par Compose).
 
-Si tu as mis un **config cache** (`php artisan config:cache`) avec d’anciennes valeurs :
+Si tu as mis un **config cache** (`php artisan config:cache`) avec d'anciennes valeurs :
 
 ```bash
 docker compose exec server php artisan config:clear
@@ -112,24 +133,22 @@ docker compose exec server php artisan config:clear
 
 ---
 
-## Connexion après seed
+## 🔐 Connexion après seed
 
-Le fichier `Server/database/seeders/DatabaseSeeder.php` :
+Le fichier `Server/database/seeders/DatabaseSeeder.php` définit un compte administrateur de test :
 
 - **Email :** `admin@uagl.local`  
 - **Mot de passe :** `password`
 
-
-
 ---
 
-## Dépannage rapide
+## 🚑 Dépannage rapide
 
 - **Après clone sur une autre machine, le conteneur `server` « ne démarre pas » ou reste très longtemps en Starting / Restarting**  
-  Ancien comportement probable : **`vendor/` absent** + volume `server_vendor` vide ⇒ `php artisan serve` tombait tout de suite, et avec `restart: unless-stopped` Docker **bouclait**. Vérifie les logs avec `docker compose logs -f server`. Avec la version actuelle du projet, **`composer install` est exécuté automatiquement** au démarrage du backend ; après mise à jour du dépôt, refais au besoin `docker compose up -d --build`.
+  Vérifie les logs avec `docker compose logs -f server`. Avec la version actuelle du projet, **`composer install` est exécuté automatiquement** au démarrage du backend ; après mise à jour du dépôt, refais au besoin `docker compose up -d --build`.
 
 - **Impossible de joindre Postgres (`could not translate host name "database"`…)**  
-  Mets `DB_HOST=db` dans `Server/.env` ou utilise l’alias `database` (déjà prévu dans Compose), puis `config:clear` si besoin.
+  Mets `DB_HOST=db` dans `Server/.env` ou utilise l'alias `database` (déjà prévu dans Compose), puis `config:clear` si besoin.
 
 - **Port déjà utilisé**  
   Change les mappings `ports:` dans `docker-compose.yml` ou libère les ports 5432 / 8000 / 5173.
@@ -141,9 +160,3 @@ make clean-volumes
 ```
 
 Puis relance `make init` ou `make flush`.
-
----
-
-## Licence
-
-

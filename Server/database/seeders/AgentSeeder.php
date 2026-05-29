@@ -130,8 +130,6 @@ class AgentSeeder extends Seeder
                 'sexe' => $this->guessSexe($agent['prenom']),
                 'date_naissance' => $dateNaissance,
                 'lieu_naissance' => $agent['lieu'],
-                'situation_familiale' => null,
-                'nombre_enfants' => rand(0, 4),
                 'date_embauche' => $dateEmbauche,
                 'nationalite' => 'Sénégalaise',
                 'id_post' => $poste->id_post,

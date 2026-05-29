@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Budget\BudgetPrevision;
 use App\Models\Budget\Compte;
 use App\Models\Budget\Realisation;
+use App\Models\Budget\Engagement;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,13 +17,38 @@ class BudgetController extends Controller
     public function referentiels(): JsonResponse
     {
         return response()->json([
-
             'comptes' => Compte::query()
                 ->with('parent')
                 ->withCount('enfants')
                 ->orderBy('numero')
                 ->get(),
         ]);
+    }
+
+    public function storeCompte(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'numero' => 'required|string|unique:comptes,numero',
+            'intitule' => 'required|string',
+            'parent_numero' => 'nullable|string|exists:comptes,numero'
+        ]);
+
+        $parentId = null;
+        if (!empty($validated['parent_numero'])) {
+            $parentId = Compte::where('numero', $validated['parent_numero'])->value('id');
+        }
+
+        $compte = Compte::create([
+            'numero' => $validated['numero'],
+            'intitule' => $validated['intitule'],
+            'parent_id' => $parentId
+        ]);
+
+        // Return the compte with parent to match the referentiels payload
+        $compte->load('parent');
+        $compte->enfants_count = 0;
+
+        return response()->json($compte, 201);
     }
 
     private function compteEstSaisissable(int $compteId): bool
@@ -41,7 +67,7 @@ class BudgetController extends Controller
     }
 
     /**
-     * Liste des prévisions et réalisations avec écarts (réalisation − prévision annuelle ou prorata mensuel).
+     * Liste des prévisions, engagements et réalisations.
      */
     public function index(Request $request): JsonResponse
     {
@@ -53,32 +79,27 @@ class BudgetController extends Controller
             ->orderBy('annee');
         $realisationsQuery = Realisation::query()
             ->with(['compte.parent'])
-            ->orderBy('annee')
-            ->orderBy('mois');
+            ->orderBy('date_realisation');
+        $engagementsQuery = Engagement::query()
+            ->with(['compte.parent'])
+            ->orderBy('date_engagement');
 
         if ($anneeInt !== null) {
             $previsionsQuery->where('annee', $anneeInt);
-            $realisationsQuery->where('annee', $anneeInt);
+            $realisationsQuery->whereYear('date_realisation', $anneeInt);
+            $engagementsQuery->whereYear('date_engagement', $anneeInt);
         }
-
-        $previsions = $previsionsQuery->get();
-        $realisations = $realisationsQuery->get()->map(function (Realisation $r) {
-            $data = $r->toArray();
-            $data['ecart_vers_prevision_annuelle'] = $r->ecartVersPrevisionAnnuelle();
-            $data['ecart_vers_prevision_mensuelle_proratis'] = $r->ecartVersPrevisionMensuelleProratis();
-
-            return $data;
-        });
 
         return response()->json([
             'annee' => $anneeInt,
-            'previsions' => $previsions,
-            'realisations' => $realisations,
+            'previsions' => $previsionsQuery->get(),
+            'realisations' => $realisationsQuery->get(),
+            'engagements' => $engagementsQuery->get(),
         ]);
     }
 
     /**
-     * Ajoute une prévision ou une réalisation (champ `type` : prevision | realisation).
+     * Ajoute une prévision, une réalisation ou un engagement.
      */
     public function store(Request $request): JsonResponse
     {
@@ -87,7 +108,6 @@ class BudgetController extends Controller
         if ($type === 'prevision') {
             $validated = $request->validate([
                 'type' => ['required', Rule::in(['prevision'])],
-
                 'compte_id' => ['required', 'integer', 'exists:comptes,id'],
                 'montant_prevu' => ['required', 'numeric'],
                 'annee' => ['required', 'integer', 'min:2000', 'max:2100'],
@@ -96,7 +116,6 @@ class BudgetController extends Controller
             unset($validated['type']);
             $row = BudgetPrevision::query()->updateOrCreate(
                 [
-
                     'compte_id' => $validated['compte_id'],
                     'annee' => $validated['annee'],
                     'mois' => $validated['mois'],
@@ -113,25 +132,32 @@ class BudgetController extends Controller
         if ($type === 'realisation') {
             $validated = $request->validate([
                 'type' => ['required', Rule::in(['realisation'])],
-
                 'compte_id' => ['required', 'integer', 'exists:comptes,id'],
                 'montant_realise' => ['required', 'numeric'],
-                'mois' => ['required', 'integer', 'min:1', 'max:12'],
-                'annee' => ['required', 'integer', 'min:2000', 'max:2100'],
+                'date_realisation' => ['required', 'date'],
                 'observation' => ['nullable', 'string'],
             ]);
             unset($validated['type']);
             $row = Realisation::create($validated);
             $row->load(['compte']);
-
-            $payload = $row->toArray();
-            $payload['ecart_vers_prevision_annuelle'] = $row->ecartVersPrevisionAnnuelle();
-            $payload['ecart_vers_prevision_mensuelle_proratis'] = $row->ecartVersPrevisionMensuelleProratis();
-
-            return response()->json($payload, 201);
+            return response()->json($row, 201);
         }
 
-        return response()->json(['message' => 'type invalide : utiliser prevision ou realisation.'], 422);
+        if ($type === 'engagement') {
+            $validated = $request->validate([
+                'type' => ['required', Rule::in(['engagement'])],
+                'compte_id' => ['required', 'integer', 'exists:comptes,id'],
+                'montant_engage' => ['required', 'numeric'],
+                'date_engagement' => ['required', 'date'],
+                'observation' => ['nullable', 'string'],
+            ]);
+            unset($validated['type']);
+            $row = Engagement::create($validated);
+            $row->load(['compte']);
+            return response()->json($row, 201);
+        }
+
+        return response()->json(['message' => 'type invalide : utiliser prevision, realisation ou engagement.'], 422);
     }
 
     public function update(Request $request, string $type, int $id): JsonResponse
@@ -139,54 +165,57 @@ class BudgetController extends Controller
         if ($type === 'prevision') {
             $row = BudgetPrevision::query()->findOrFail($id);
             $validated = $request->validate([
-
                 'compte_id' => ['sometimes', 'integer', 'exists:comptes,id'],
                 'montant_prevu' => ['sometimes', 'numeric'],
                 'annee' => ['sometimes', 'integer', 'min:2000', 'max:2100'],
                 'mois' => ['sometimes', 'integer', 'min:1', 'max:12'],
             ]);
             $row->update($validated);
-
             return response()->json($row->fresh(['compte']));
         }
 
         if ($type === 'realisation') {
             $row = Realisation::query()->findOrFail($id);
             $validated = $request->validate([
-
                 'compte_id' => ['sometimes', 'integer', 'exists:comptes,id'],
                 'montant_realise' => ['sometimes', 'numeric'],
-                'mois' => ['sometimes', 'integer', 'min:1', 'max:12'],
-                'annee' => ['sometimes', 'integer', 'min:2000', 'max:2100'],
+                'date_realisation' => ['sometimes', 'date'],
                 'observation' => ['nullable', 'string'],
             ]);
             $row->update($validated);
-            $row->refresh();
-            $row->load(['compte']);
-            $payload = $row->toArray();
-            $payload['ecart_vers_prevision_annuelle'] = $row->ecartVersPrevisionAnnuelle();
-            $payload['ecart_vers_prevision_mensuelle_proratis'] = $row->ecartVersPrevisionMensuelleProratis();
-
-            return response()->json($payload);
+            return response()->json($row->fresh(['compte']));
         }
 
-        return response()->json(['message' => 'type invalide : prevision ou realisation.'], 422);
+        if ($type === 'engagement') {
+            $row = Engagement::query()->findOrFail($id);
+            $validated = $request->validate([
+                'compte_id' => ['sometimes', 'integer', 'exists:comptes,id'],
+                'montant_engage' => ['sometimes', 'numeric'],
+                'date_engagement' => ['sometimes', 'date'],
+                'observation' => ['nullable', 'string'],
+            ]);
+            $row->update($validated);
+            return response()->json($row->fresh(['compte']));
+        }
+
+        return response()->json(['message' => 'type invalide : prevision, realisation ou engagement.'], 422);
     }
 
     public function destroy(string $type, int $id): JsonResponse
     {
         if ($type === 'prevision') {
-            $row = BudgetPrevision::query()->findOrFail($id);
-            $row->delete();
-
+            BudgetPrevision::query()->findOrFail($id)->delete();
             return response()->json(['deleted' => true, 'type' => 'prevision', 'id' => $id]);
         }
 
         if ($type === 'realisation') {
-            $row = Realisation::query()->findOrFail($id);
-            $row->delete();
-
+            Realisation::query()->findOrFail($id)->delete();
             return response()->json(['deleted' => true, 'type' => 'realisation', 'id' => $id]);
+        }
+
+        if ($type === 'engagement') {
+            Engagement::query()->findOrFail($id)->delete();
+            return response()->json(['deleted' => true, 'type' => 'engagement', 'id' => $id]);
         }
 
         return response()->json(['message' => 'type invalide.'], 422);

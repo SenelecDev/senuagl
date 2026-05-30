@@ -95,8 +95,11 @@ wait-backend:
 	echo "Temps maximal dépassé. Voir : docker compose logs server"; exit 1
 
 # Premier lancement complet (après clone)
-init: up-build wait-backend
-	$(DC) exec -T server sh -c 'test -f .env || cp .env.example .env'
+init:
+	@echo "Préparation de l'environnement…"
+	@test -f ./Server/.env || (cp ./Server/.env.example ./Server/.env && echo "Server/.env créé depuis .env.example — pensez à vérifier les valeurs.")
+	$(DC) up -d --build
+	@$(MAKE) wait-backend
 	$(DC) exec -T server php artisan key:generate --force
 	$(DC) exec -T server php artisan migrate --seed --force
 	$(DC) exec -T client npm install
@@ -146,8 +149,10 @@ clean-volumes:
 	@echo "Conteneurs et volumes du projet supprimés."
 
 # Reset total : données + réinstall
-flush: clean-volumes up-build wait-backend
-	$(DC) exec -T server sh -c 'test -f .env || cp .env.example .env'
+flush: clean-volumes
+	@test -f ./Server/.env || (cp ./Server/.env.example ./Server/.env && echo "Server/.env créé depuis .env.example — pensez à vérifier les valeurs.")
+	$(DC) up -d --build
+	@$(MAKE) wait-backend
 	$(DC) exec -T server php artisan key:generate --force
 	$(DC) exec -T server php artisan migrate --seed --force
 	$(DC) exec -T client npm install

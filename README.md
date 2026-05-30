@@ -28,76 +28,83 @@ Application **full stack** :
 ## 🚀 Prérequis
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (ou Docker Engine + plugin Compose)
-- Optionnel : `make` pour utiliser le `Makefile` à la racine
-
-La commande utilisée par défaut est `docker compose`. Si ton installation ne fournit que l'ancienne CLI, utilise par exemple :
-
-```bash
-make DC="docker-compose" up
-```
-
-(À adapter partout ou définir un alias.)
+- Optionnel : `make` pour utiliser les raccourcis du `Makefile`
 
 ---
 
 ## ⚙️ Démarrage rapide
 
-À la racine du dépôt :
+### 1. Configurer l'environnement
+
+Après le clone, créer le fichier `Server/.env` à partir du template :
+
+```bash
+cp Server/.env.example Server/.env
+```
+
+Les valeurs par défaut (base de données, ports, etc.) sont déjà configurées pour fonctionner avec Docker Compose. Aucune modification n'est nécessaire pour un usage standard.
+
+### 2. Construire et démarrer les services
 
 ```bash
 docker compose up -d --build
 ```
 
-Le conteneur **server** installe automatiquement les dépendances Composer dans le volume `server_vendor` au démarrage (indispensable après un clone, car **`vendor/` n'est pas versionné**). Le **premier** `docker compose build` peut prendre plusieurs minutes (compilation des extensions PHP `pdo_pgsql`, etc.) selon la machine et le réseau.
+Le **premier build** peut prendre plusieurs minutes (compilation des extensions PHP, téléchargement des images). Le conteneur `server` exécute automatiquement `composer install` au démarrage — le port 8000 ne répond qu'**après**.
 
-Le premier `composer install` **dans le conteneur** peut aussi prendre longtemps (téléchargement Packagist) : le port 8000 ne répond que **après**. Suivre : `docker compose logs -f server`. Pour le Makefile : `make wait-backend` ou `make init` (qui attend déjà l'API, jusqu'à ~7–8 minutes par défaut).
+Pour suivre la progression :
 
-Ensuite **initialisation une seule fois** (`.env`, clé d'application, migrations + seed, dépendances npm côté client) :
+```bash
+docker compose logs -f server
+```
+
+### 3. Initialiser l'application
+
+Une fois que le backend est prêt (le log affiche `Starting Laravel development server`), dans un autre terminal :
+
+```bash
+# Générer la clé d'application Laravel
+docker compose exec server php artisan key:generate
+
+# Créer les tables et insérer les données de démonstration
+docker compose exec server php artisan migrate --seed
+
+# Installer les dépendances du client
+docker compose exec client npm install
+```
+
+### 4. Accéder à l'application
+
+| Service   | URL                              |
+|-----------|----------------------------------|
+| Frontend  | http://localhost:5173            |
+| API       | http://localhost:8000            |
+| Test API  | http://localhost:8000/api/test   |
+
+---
+
+### 🚀 Raccourci avec Make (optionnel)
+
+Si `make` est installé, toutes les étapes ci-dessus se résument à **une seule commande** :
 
 ```bash
 make init
 ```
 
-Ou à la main :
+Cette commande :
+1. Crée `Server/.env` à partir de `.env.example` (si absent)
+2. Build et démarre les conteneurs
+3. Attend que le backend soit prêt
+4. Génère la clé Laravel, exécute les migrations et le seed
+5. Installe les dépendances npm du client
+
+La commande utilisée par défaut est `docker compose`. Si votre installation ne fournit que l'ancienne CLI :
 
 ```bash
-docker compose exec server sh -c 'test -f .env || cp .env.example .env'
-docker compose exec server php artisan key:generate
-docker compose exec server php artisan migrate --seed
-docker compose exec client npm install
+make DC="docker-compose" init
 ```
 
-**URLs :**
-
-| Service    | URL                        |
-|-----------|----------------------------|
-| Frontend  | http://localhost:5173      |
-| API       | http://localhost:8000      |
-| Health    | http://localhost:8000/api/health |
-
----
-
-## 🛠 Makefile (`make`)
-
-Résumé des cibles utiles :
-
-| Commande              | Rôle |
-|----------------------|------|
-| `make up`            | Démarrer les conteneurs |
-| `make up-build`      | Build des images + démarrage |
-| `make down`          | Arrêter |
-| `make init`          | Première installation complète dans les conteneurs |
-| `make migrate`       | Migrations |
-| `make seed`          | Seed seul |
-| `make logs-db`       | Logs Postgres (service `db`) |
-| `make db-shell`      | Shell `psql` (utilisateur / base par défaut du projet) |
-| `make clean-volumes` | Supprime conteneurs **et** volumes (données effacées) |
-| `make wait-backend`  | Attend que `GET /api/test` réponde (composer au 1ᵉʳ démarrage) |
-| `make flush`         | Comme un reset : volumes + rebuild + réinit applicatif |
-| `make artisan CMD="…"` | Exécute `php artisan …` dans `server` |
-| `make npm CMD="…"`   | Exécute `npm …` dans `client` |
-
-Voir `make help` pour la liste complète.
+Voir `make help` pour la liste complète des raccourcis disponibles.
 
 ---
 
@@ -113,7 +120,7 @@ Définis dans `docker-compose.yml` :
 
 Le réseau interne expose aussi l'alias DNS **`database`** vers le même conteneur que `db` (compatibilité avec d'anciennes configs).
 
-### Variables de base de données (recommandé)
+### Variables de base de données
 
 Dans `Server/.env`, pour coller à Compose :
 
@@ -123,9 +130,9 @@ Dans `Server/.env`, pour coller à Compose :
 - `DB_PORT=5432`
 - `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` doivent correspondre à ceux du service `db`.
 
-Le service `server` charge explicitement `Server/.env` via `env_file` dans `docker-compose.yml`. Donc c'est bien ce fichier qui fait foi (plus d'override silencieux des variables DB par Compose).
+Le service `server` charge explicitement `Server/.env` via `env_file` dans `docker-compose.yml`. C'est bien ce fichier qui fait foi.
 
-Si tu as mis un **config cache** (`php artisan config:cache`) avec d'anciennes valeurs :
+Si vous avez mis un **config cache** (`php artisan config:cache`) avec d'anciennes valeurs :
 
 ```bash
 docker compose exec server php artisan config:clear
@@ -144,19 +151,19 @@ Le fichier `Server/database/seeders/DatabaseSeeder.php` définit un compte admin
 
 ## 🚑 Dépannage rapide
 
-- **Après clone sur une autre machine, le conteneur `server` « ne démarre pas » ou reste très longtemps en Starting / Restarting**  
-  Vérifie les logs avec `docker compose logs -f server`. Avec la version actuelle du projet, **`composer install` est exécuté automatiquement** au démarrage du backend ; après mise à jour du dépôt, refais au besoin `docker compose up -d --build`.
+- **Après clone, le conteneur `server` ne démarre pas ou reste longtemps en Starting / Restarting**  
+  Vérifier les logs avec `docker compose logs -f server`. Le `composer install` est exécuté automatiquement au démarrage du backend. Après mise à jour du dépôt, refaire au besoin `docker compose up -d --build`.
 
 - **Impossible de joindre Postgres (`could not translate host name "database"`…)**  
-  Mets `DB_HOST=db` dans `Server/.env` ou utilise l'alias `database` (déjà prévu dans Compose), puis `config:clear` si besoin.
+  Mettre `DB_HOST=db` dans `Server/.env` (ou utiliser l'alias `database` déjà prévu dans Compose), puis `config:clear` si besoin.
 
 - **Port déjà utilisé**  
-  Change les mappings `ports:` dans `docker-compose.yml` ou libère les ports 5432 / 8000 / 5173.
+  Changer les mappings `ports:` dans `docker-compose.yml` ou libérer les ports 5432 / 8000 / 5173.
 
 - **Vider complètement les données locales Docker**
 
 ```bash
-make clean-volumes
+docker compose down -v --remove-orphans
 ```
 
-Puis relance `make init` ou `make flush`.
+Puis relancer les étapes de démarrage rapide ou `make flush`.

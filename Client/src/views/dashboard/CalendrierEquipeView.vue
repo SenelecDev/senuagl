@@ -120,7 +120,7 @@
               <h2 class="dept-name">{{ dept.department_name }}</h2>
               <span class="dept-count">
                 {{ dept.employes.length }} employé(s) ·
-                {{ dept.employes.reduce((s, e) => s + e.conges.length, 0) }} demande(s)
+                {{ dept.demandeCount }} demande(s)
               </span>
             </div>
           </div>
@@ -128,7 +128,7 @@
         </div>
 
         <!-- Calendrier Gantt du département -->
-        <div v-show="deptOuvert[dept.department_id]" class="gantt-wrapper">
+        <div v-if="deptOuvert[dept.department_id]" class="gantt-wrapper">
 
           <!-- En-tête des jours -->
           <div class="gantt-grid" :style="gridStyle">
@@ -172,15 +172,14 @@
                 }"
               >
                 <!-- Segments de congé pour ce jour -->
-                <template v-for="conge in employe.conges" :key="conge.id">
+                <template v-for="conge in congesDuJour(employe, jour)" :key="conge.id">
                   <div
-                    v-if="jourEstDansConge(jour, conge)"
                     class="conge-segment"
                     :class="[
                       'conge-' + conge.type,
                       conge.statut === 'en_attente' ? 'conge-attente' : '',
-                      jourEstDebut(jour, conge) ? 'conge-debut' : '',
-                      jourEstFin(jour, conge) ? 'conge-fin' : '',
+                      conge.startsByDay[jour] ? 'conge-debut' : '',
+                      conge.endsByDay[jour] ? 'conge-fin' : '',
                     ]"
                     :style="segmentStyle(conge)"
                     :title="tooltipConge(conge)"
@@ -270,6 +269,8 @@ export default {
       meta: { nb_jours: 30, nom_mois: '', premier_jour: 1 },
       parDepartement: [],
       totalDemandes: 0,
+      weekendDays: [],
+      todayDay: null,
       departments: [],
       filtreDepId: '',
       filtreType: '',
@@ -317,6 +318,10 @@ export default {
               ...emp,
               conges: emp.conges.filter(c => c.type === this.filtreType),
             }))
+            .map(emp => ({
+              ...emp,
+              congesByDay: this.buildCongesByDay(emp.conges),
+            }))
             .filter(emp => emp.conges.length > 0),
         }))
         .filter(dept => dept.employes.length > 0);
@@ -349,14 +354,20 @@ export default {
   },
 
   async mounted() {
-    await this.charger();
-    if (this.peutFiltrerDept) {
-      const res = await departmentsApi.list();
-      if (res.data.success) this.departments = res.data.data;
-    }
+    await Promise.all([
+      this.charger(),
+      this.chargerDepartements(),
+    ]);
   },
 
   methods: {
+    async chargerDepartements() {
+      if (!this.peutFiltrerDept || this.departments.length > 0) return;
+
+      const res = await departmentsApi.list();
+      if (res.data.success) this.departments = res.data.data;
+    },
+
     async charger() {
       this.loading = true;
       this.erreur = null;
@@ -368,15 +379,17 @@ export default {
         if (res.data.success) {
           const data = res.data.data;
           this.meta            = data.meta;
-          this.parDepartement  = data.par_departement;
+          this.updateDayCache();
+          this.parDepartement  = this.prepareCalendarData(data.par_departement);
           this.totalDemandes   = data.total_demandes;
 
           // Ouvrir tous les départements par défaut
-          this.parDepartement.forEach(d => {
-            if (!(d.department_id in this.deptOuvert)) {
-              this.deptOuvert[d.department_id] = true;
-            }
+          const nextOpenState = {};
+          this.parDepartement.forEach((d, index) => {
+            const wasOpen = this.deptOuvert[d.department_id];
+            nextOpenState[d.department_id] = this.filtreDepId ? true : (wasOpen ?? index === 0);
           });
+          this.deptOuvert = nextOpenState;
         }
       } catch (e) {
         this.erreur = 'Impossible de charger le calendrier. Vérifiez votre connexion.';
@@ -384,6 +397,74 @@ export default {
       } finally {
         this.loading = false;
       }
+    },
+
+    updateDayCache() {
+      this.weekendDays = [];
+      for (let jour = 1; jour <= this.meta.nb_jours; jour++) {
+        const d = new Date(this.annee, this.mois - 1, jour);
+        if (d.getDay() === 0 || d.getDay() === 6) {
+          this.weekendDays.push(jour);
+        }
+      }
+
+      const today = new Date();
+      this.todayDay =
+        today.getFullYear() === this.annee &&
+        today.getMonth() + 1 === this.mois
+          ? today.getDate()
+          : null;
+    },
+
+    prepareCalendarData(departements) {
+      return departements.map(dept => {
+        const employes = dept.employes.map(employe => {
+          const conges = employe.conges.map(conge => {
+            const enriched = {
+              ...conge,
+              startsByDay: {},
+              endsByDay: {},
+            };
+
+            const debut = new Date(`${conge.date_debut}T00:00:00`);
+            const fin = new Date(`${conge.date_fin}T00:00:00`);
+            const startDay = debut.getFullYear() === this.annee && debut.getMonth() + 1 === this.mois
+              ? debut.getDate()
+              : 1;
+            const endDay = fin.getFullYear() === this.annee && fin.getMonth() + 1 === this.mois
+              ? fin.getDate()
+              : this.meta.nb_jours;
+
+            enriched.startsByDay[startDay] = true;
+            enriched.endsByDay[endDay] = true;
+
+            return enriched;
+          });
+
+          return { ...employe, conges, congesByDay: this.buildCongesByDay(conges) };
+        });
+
+        return {
+          ...dept,
+          employes,
+          demandeCount: employes.reduce((sum, employe) => sum + employe.conges.length, 0),
+        };
+      });
+    },
+
+    buildCongesByDay(conges) {
+      const congesByDay = {};
+
+      conges.forEach(conge => {
+        const startDay = Number(Object.keys(conge.startsByDay)[0] || 1);
+        const endDay = Number(Object.keys(conge.endsByDay)[0] || this.meta.nb_jours);
+        for (let jour = startDay; jour <= endDay; jour++) {
+          if (!congesByDay[jour]) congesByDay[jour] = [];
+          congesByDay[jour].push(conge);
+        }
+      });
+
+      return congesByDay;
     },
 
     changerMois(delta) {
@@ -411,17 +492,15 @@ export default {
 
     // ---- Helpers calendrier ----
     isWeekend(jour) {
-      const d = new Date(this.annee, this.mois - 1, jour);
-      return d.getDay() === 0 || d.getDay() === 6;
+      return this.weekendDays.includes(jour);
     },
 
     isToday(jour) {
-      const today = new Date();
-      return (
-        today.getFullYear() === this.annee &&
-        today.getMonth() + 1 === this.mois &&
-        today.getDate() === jour
-      );
+      return this.todayDay === jour;
+    },
+
+    congesDuJour(employe, jour) {
+      return employe.congesByDay?.[jour] || [];
     },
 
     jourEstDansConge(jour, conge) {
@@ -689,6 +768,8 @@ export default {
   box-shadow: 0 4px 6px -1px rgba(0,0,0,.08);
   overflow: hidden;
   border: 1px solid #e2e8f0;
+  content-visibility: auto;
+  contain-intrinsic-size: 220px;
 }
 
 .dept-header {

@@ -1,13 +1,15 @@
 <template>
-  <v-app>
-    <v-layout class="admin-dashboard-layout">
-      <AdminSidebar />
+  <div class="admin-dashboard-layout">
+    <AdminSidebar />
+    <div class="admin-dashboard-content">
       <AdminToolbar :title="currentTitle" />
-      <v-main>
-        <router-view />
-      </v-main>
-    </v-layout>
-  </v-app>
+      <main class="admin-main-content">
+        <div class="admin-main-container">
+          <router-view />
+        </div>
+      </main>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -19,8 +21,7 @@ export default {
   components: { AdminSidebar, AdminToolbar },
   computed: {
     currentTitle() {
-      // Logic to determine title based on route
-      const routeName = this.$route.meta.title || "Administration";
+      const routeName = this.$route.meta.title || "Tableau de bord admin";
       return routeName;
     },
   },
@@ -29,6 +30,38 @@ export default {
 
 <style scoped>
 .admin-dashboard-layout {
-  background-color: #f4f6f8;
+  display: flex;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%);
+  position: relative;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-dashboard-content {
+  flex: 1;
+  margin-left: 300px;
+  min-height: 100vh;
+  transition: margin-left 0.3s ease;
+}
+
+.admin-main-content {
+  min-height: 100vh;
+  padding: 88px 24px 24px;
+}
+
+.admin-main-container {
+  min-height: calc(100vh - 112px);
+}
+
+@media (max-width: 768px) {
+  .admin-dashboard-content {
+    margin-left: 0;
+  }
+
+  .admin-main-content {
+    padding: 88px 16px 16px;
+  }
 }
 </style>

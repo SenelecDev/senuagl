@@ -38,6 +38,15 @@ serve:
 artisan:
 	docker exec -it laravel php artisan
 
+test:
+	docker exec -it laravel php artisan test
+
+test-unit:
+	docker exec -it laravel php artisan test --testsuite=Unit
+
+test-feature:
+	docker exec -it laravel php artisan test --testsuite=Feature
+
 migrate:
 	docker exec -it laravel php artisan migrate
 

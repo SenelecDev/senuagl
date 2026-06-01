@@ -582,7 +582,22 @@ class DemandeCongeController extends Controller
     $finMois   = \Carbon\Carbon::create($annee, $mois, 1)->endOfMonth();
  
     // ---- Déterminer le périmètre selon le rôle ----
-    $query = \App\Models\DemandeConge::with(['user', 'user.department', 'user.role'])
+    $query = \App\Models\DemandeConge::query()
+        ->select([
+            'id',
+            'user_id',
+            'type_demande',
+            'date_debut',
+            'date_fin',
+            'duree_jours',
+            'statut',
+            'motif',
+        ])
+        ->with([
+            'user:id,first_name,name,department_id,role_id,manager_id',
+            'user.department:id,name',
+            'user.role:id,nom',
+        ])
         ->whereIn('statut', ['approuve', 'en_attente'])
         ->where(function ($q) use ($debutMois, $finMois) {
             // Toute demande qui chevauche le mois affiché

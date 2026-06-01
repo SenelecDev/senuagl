@@ -55,22 +55,17 @@ export const useCongesStore = defineStore('conges', {
       this.error = null;
       try {
         this.statsRequest = this.statsRequest || (async () => {
-        // Charger les stats dashboard ET toutes les demandes en parallèle
-        const [statsResponse, demandesResponse] = await Promise.all([
-          dashboardApi.stats(),
-          demandesApi.list({ per_page: 100 }),
-        ]);
+        const statsResponse = await dashboardApi.stats();
 
         if (statsResponse.data.success) {
           const data = statsResponse.data.data;
           this.stats = data.stats;
           this.prochainsConges = data.prochains_conges || [];
+          if (data.solde_conges) {
+            this.soldeConges = data.solde_conges;
+          }
         }
 
-        if (demandesResponse.data.success) {
-          const demandes = demandesResponse.data.data.data || [];
-          this._calculerSoldes(demandes);
-        }
         this.lastStatsFetch = Date.now();
         })();
 

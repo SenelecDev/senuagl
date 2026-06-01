@@ -256,8 +256,7 @@ export default {
     };
 
     onMounted(async () => {
-      await chargerStats();
-      await chargerCalendrier();
+      await Promise.all([chargerStats(), chargerCalendrier()]);
     });
     onActivated(chargerStats);
 

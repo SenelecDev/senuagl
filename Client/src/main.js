@@ -80,7 +80,7 @@ app.mount("#app");
 const userStore = useUserStore();
 userStore.initializeAuth().then(() => {
   const notificationsStore = useNotificationsStore();
-  if (userStore.isAuthenticated) {
+  if (userStore.isAuthenticated && router.currentRoute.value.path !== '/') {
     window.setTimeout(() => {
       notificationsStore.fetchNotifications();
       notificationsStore.initRealtimeNotifications();

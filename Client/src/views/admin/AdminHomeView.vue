@@ -1,99 +1,128 @@
 <template>
   <v-container fluid class="admin-home-view pa-6">
-    <!-- Cartes de Statistiques (KPIs) -->
-    <v-row>
+    <div class="dashboard-hero">
+      <div class="hero-text">
+        <h1>Tableau de bord administrateur</h1>
+        <p>Vue moderne des opérations, des performances et des activités récentes.</p>
+      </div>
+      <div class="hero-actions">
+        <v-btn color="primary" rounded elevation="3">Rapport mensuel</v-btn>
+        <v-btn variant="tonal" rounded elevation="3">Paramètres</v-btn>
+      </div>
+    </div>
+
+    <v-row class="kpi-row" dense>
       <v-col v-for="kpi in kpis" :key="kpi.title" cols="12" sm="6" md="3">
-        <v-card elevation="2" class="rounded-lg">
-          <v-card-text class="d-flex align-center">
-            <v-avatar :color="kpi.color" rounded size="56" class="elevation-1">
-              <v-icon :icon="kpi.icon" size="x-large" color="white"></v-icon>
+        <v-card elevation="3" class="kpi-card">
+          <div class="kpi-card-top">
+            <v-avatar :class="kpi.color" size="48">
+              <v-icon :icon="kpi.icon" color="white" size="24" />
             </v-avatar>
-            <div class="ml-4">
-              <p class="text-h5 font-weight-bold">{{ kpi.value }}</p>
-              <p class="text-subtitle-2 text-grey-darken-1">{{ kpi.title }}</p>
-            </div>
-          </v-card-text>
+            <span class="kpi-label">{{ kpi.title }}</span>
+          </div>
+          <div class="kpi-card-value">{{ kpi.value }}</div>
+          <div class="kpi-card-subtitle">{{ kpi.subtitle }}</div>
         </v-card>
       </v-col>
     </v-row>
 
-    <v-row>
-      <!-- Activités récentes -->
-      <v-col cols="12" md="7">
-        <v-card elevation="2" class="rounded-lg">
-          <v-card-title class="font-weight-bold"
-            >Activités Récentes</v-card-title
-          >
-          <v-divider></v-divider>
-          <v-card-text>
-            <v-timeline align="start" density="compact">
-              <v-timeline-item
-                v-for="item in recentActivities"
-                :key="item.id"
-                :dot-color="item.color"
-                size="x-small"
-              >
-                <div class="d-flex justify-space-between">
-                  <strong class="mr-4">{{ item.text }}</strong>
-                  <div class="text-caption text-grey">{{ item.time }}</div>
-                </div>
-              </v-timeline-item>
-            </v-timeline>
-          </v-card-text>
+    <v-row dense class="main-grid">
+      <v-col cols="12" xl="8">
+        <v-card elevation="3" class="summary-card">
+          <div class="section-header">
+            <div>
+              <h2>Résumé de la semaine</h2>
+              <p>Indicateurs clés et actions recommandées pour l'administration.</p>
+            </div>
+            <v-chip color="purple" text-color="white" size="small">En direct</v-chip>
+          </div>
+
+          <div class="summary-grid">
+            <div class="summary-item" v-for="item in weekSummary" :key="item.label">
+              <div class="summary-stat">{{ item.value }}</div>
+              <div class="summary-label">{{ item.label }}</div>
+              <div class="summary-footer">
+                <v-icon :color="item.color" size="18">{{ item.icon }}</v-icon>
+                <span>{{ item.change }}</span>
+              </div>
+            </div>
+          </div>
+        </v-card>
+
+        <v-card elevation="3" class="action-card mt-6">
+          <div class="section-header">
+            <div>
+              <h2>Actions prioritaires</h2>
+              <p>Suivez les éléments qui demandent votre attention.</p>
+            </div>
+          </div>
+
+          <v-list>
+            <v-list-item
+              v-for="action in priorityActions"
+              :key="action.id"
+              class="priority-action"
+            >
+              <v-list-item-avatar>
+                <v-icon :icon="action.icon" size="20" />
+              </v-list-item-avatar>
+              <v-list-item-content>
+                <v-list-item-title>{{ action.title }}</v-list-item-title>
+                <v-list-item-subtitle>{{ action.subtitle }}</v-list-item-subtitle>
+              </v-list-item-content>
+              <v-list-item-action>
+                <v-chip :color="action.tagColor" small>{{ action.tag }}</v-chip>
+              </v-list-item-action>
+            </v-list-item>
+          </v-list>
         </v-card>
       </v-col>
 
-      <!-- Répartition des Rôles & Accès Rapide -->
-      <v-col cols="12" md="5" class="d-flex flex-column ga-6">
-        <v-card elevation="2" class="rounded-lg">
-          <v-card-title class="font-weight-bold"
-            >Utilisateurs par Rôle</v-card-title
-          >
-          <v-divider></v-divider>
-          <v-list-item v-for="(count, role) in usersByRole" :key="role">
-            <v-list-item-title class="font-weight-medium">{{
-              role
-            }}</v-list-item-title>
-            <v-list-item-subtitle
-              >{{ count }} utilisateur(s)</v-list-item-subtitle
+      <v-col cols="12" xl="4">
+        <v-card elevation="3" class="recent-activity-card">
+          <div class="section-header">
+            <div>
+              <h2>Activités récentes</h2>
+              <p>Dernières actions sur le compte admin.</p>
+            </div>
+            <v-btn text size="small">Voir tout</v-btn>
+          </div>
+
+          <v-timeline align="start" density="comfortable">
+            <v-timeline-item
+              v-for="item in recentActivities"
+              :key="item.id"
+              :icon="item.icon"
+              :color="item.color"
+              :title="item.title"
+              :subtitle="item.subtitle"
             >
-            <template v-slot:append>
-              <v-progress-circular
-                :model-value="totalUsers > 0 ? (count / totalUsers) * 100 : 0"
-                :color="getRoleColor(role)"
-                size="40"
-              >
-                <small
-                  >{{
-                    totalUsers > 0 ? Math.round((count / totalUsers) * 100) : 0
-                  }}%</small
-                >
-              </v-progress-circular>
-            </template>
-          </v-list-item>
+              <div class="timeline-content">
+                <p>{{ item.description }}</p>
+                <span class="timeline-time">{{ item.time }}</span>
+              </div>
+            </v-timeline-item>
+          </v-timeline>
         </v-card>
 
-        <v-card elevation="2" class="rounded-lg">
-          <v-card-title class="font-weight-bold">Accès Rapide</v-card-title>
-          <v-divider></v-divider>
-          <v-list-item
-            link
-            to="/admin/users"
-            prepend-icon="mdi-account-plus-outline"
-            title="Ajouter un utilisateur"
-          ></v-list-item>
-          <v-list-item
-            link
-            to="/admin/departments"
-            prepend-icon="mdi-office-building-plus-outline"
-            title="Créer un département"
-          ></v-list-item>
-          <v-list-item
-            link
-            to="/admin/planning"
-            prepend-icon="mdi-calendar-plus"
-            title="Planifier des congés"
-          ></v-list-item>
+        <v-card elevation="3" class="status-card mt-6">
+          <div class="section-header">
+            <div>
+              <h2>Statut du système</h2>
+              <p>Performance globale et sécurité.</p>
+            </div>
+          </div>
+          <div class="status-grid">
+            <div class="status-item" v-for="metric in systemStatus" :key="metric.label">
+              <div class="status-circle" :style="{ background: metric.bg }">
+                <v-icon :icon="metric.icon" color="white" size="20" />
+              </div>
+              <div>
+                <div class="status-value">{{ metric.value }}</div>
+                <div class="status-label">{{ metric.label }}</div>
+              </div>
+            </div>
+          </div>
         </v-card>
       </v-col>
     </v-row>
@@ -103,118 +132,385 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { demandesApi } from "@/services/api";
-import { useUserStore } from "@/stores/users";
 import { useUsersAdminStore } from "@/stores/usersAdmin";
 import { useDepartmentsStore } from "@/stores/departments";
 
-// Stores
-const userStore = useUserStore();
 const usersAdminStore = useUsersAdminStore();
 const departmentsStore = useDepartmentsStore();
 
-// Data from stores
-const users = computed(() => usersAdminStore.users);
 const totalUsers = computed(() => usersAdminStore.totalUsers);
 const usersByRole = computed(() => usersAdminStore.usersByRole);
-const departments = computed(() => departmentsStore.departments);
 const totalDepartments = computed(() => departmentsStore.totalDepartments);
-
-// Loading states
 const loadingUsers = computed(() => usersAdminStore.usersLoading);
 const loadingDepartments = computed(() => departmentsStore.loading);
- const demandesEnAttente = ref(0);
-// Initialize data
+
+const demandesEnAttente = ref(0);
+
 onMounted(async () => {
   try {
     await Promise.all([
-      usersAdminStore.fetchUsers(1, 100, '', true),
-      departmentsStore.fetchDepartments()
+      usersAdminStore.fetchUsers(1, 100, "", true),
+      departmentsStore.fetchDepartments(),
     ]);
-    const r = await demandesApi.demandesAValider();
-    if (r.data.success) {
-      demandesEnAttente.value = (r.data.data.data || []).filter(d => d.statut === 'en_attente').length;
+    const response = await demandesApi.demandesAValider();
+    if (response.data.success) {
+      demandesEnAttente.value = (response.data.data.data || []).filter(
+        (d) => d.statut === "en_attente"
+      ).length;
     }
-  } catch(e) {
+  } catch (e) {
     console.error(e);
   }
-})
+});
 
-// KPIs
 const kpis = computed(() => [
   {
-    title: "Utilisateurs Actifs",
+    title: "Utilisateurs actifs",
     value: loadingUsers.value ? "..." : totalUsers.value,
+    subtitle: "En progression hebdomadaire",
     icon: "mdi-account-group",
-    color: "blue-darken-1",
+    color: "gradient-1",
   },
   {
     title: "Départements",
     value: loadingDepartments.value ? "..." : totalDepartments.value,
+    subtitle: "Structure organisationnelle",
     icon: "mdi-office-building",
-    color: "green-darken-1",
+    color: "gradient-2",
   },
   {
-    title: "Demandes en Attente",
-    value:  demandesEnAttente.value,
+    title: "Demandes en attente",
+    value: demandesEnAttente.value,
+    subtitle: "Traitement nécessaire",
     icon: "mdi-file-clock",
-    color: "orange-darken-1",
-  }, // Donnée statique pour l'exemple
+    color: "gradient-3",
+  },
   {
     title: "Logs (24h)",
     value: "53",
+    subtitle: "Activité du serveur",
     icon: "mdi-alert-circle-outline",
-    color: "red-darken-1",
-  }, // Donnée statique pour l'exemple
+    color: "gradient-4",
+  },
 ]);
 
-// Activités récentes (données factices)
-const recentActivities = ref([
+const weekSummary = ref([
+  {
+    label: "Demandes validées",
+    value: "18",
+    change: "+12 %",
+    icon: "mdi-check-circle-outline",
+    color: "success",
+  },
+  {
+    label: "Nouvelles demandes",
+    value: "42",
+    change: "+8 %",
+    icon: "mdi-file-document-multiple-outline",
+    color: "info",
+  },
+  {
+    label: "Nouveaux comptes",
+    value: "9",
+    change: "+45 %",
+    icon: "mdi-account-plus-outline",
+    color: "purple",
+  },
+  {
+    label: "Taux de réponse",
+    value: "94 %",
+    change: "+4 %",
+    icon: "mdi-speedometer",
+    color: "orange",
+  },
+]);
+
+const priorityActions = ref([
   {
     id: 1,
-    text: 'Nouveau utilisateur "A. Ndiaye" créé.',
-    time: "il y a 5 min",
-    color: "green",
+    icon: "mdi-shield-lock-outline",
+    title: "Revue de sécurité",
+    subtitle: "Vérifier les permissions des administrateurs",
+    tag: "Urgent",
+    tagColor: "red-lighten-4",
   },
   {
     id: 2,
-    text: 'Département "IT" mis à jour.',
-    time: "il y a 2 heures",
-    color: "orange",
+    icon: "mdi-account-check-outline",
+    title: "Approver demandes",
+    subtitle: "12 demandes en attente de validation",
+    tag: "Important",
+    tagColor: "yellow-lighten-3",
   },
   {
     id: 3,
-    text: 'Connexion échouée pour "admin".',
-    time: "il y a 3 heures",
-    color: "red",
-  },
-  {
-    id: 4,
-    text: "Paramètres de sécurité modifiés.",
-    time: "il y a 5 heures",
-    color: "blue",
+    icon: "mdi-chart-line",
+    title: "Analyse des performances",
+    subtitle: "Consulter les tendances mensuelles",
+    tag: "Statut",
+    tagColor: "cyan-lighten-4",
   },
 ]);
 
-// Couleurs des rôles
-const getRoleColor = (role) => {
-  const colors = {
-    admin: "red-darken-2",
-    directeur: "purple-darken-2",
-    superieur: "cyan-darken-2",
-    employe: "green-darken-2",
-  };
-  return colors[role.toLowerCase()] || "grey";
-};
+const recentActivities = ref([
+  {
+    id: 1,
+    icon: "mdi-account-plus",
+    color: "green",
+    title: "Utilisateur créé",
+    subtitle: "A. Ndiaye",
+    description: "Un nouveau compte employé a été ajouté depuis le service RH.",
+    time: "5 min ago",
+  },
+  {
+    id: 2,
+    icon: "mdi-office-building-cog",
+    color: "orange",
+    title: "Département mis à jour",
+    subtitle: "IT - Transformation digitale",
+    description: "La structure du département IT a été réorganisée.",
+    time: "2 h ago",
+  },
+  {
+    id: 3,
+    icon: "mdi-lock-alert",
+    color: "red",
+    title: "Tentative de connexion",
+    subtitle: "admin",
+    description: "Une connexion a échoué après 3 tentatives incorrectes.",
+    time: "3 h ago",
+  },
+  {
+    id: 4,
+    icon: "mdi-shield-check",
+    color: "blue",
+    title: "Sécurité renforcée",
+    subtitle: "Paramètres mis à jour",
+    description: "Les politiques de mot de passe ont été ajustées.",
+    time: "5 h ago",
+  },
+  {
+    id: 5,
+    icon: "mdi-calendar-star",
+    color: "purple",
+    title: "Jour férié ajouté",
+    subtitle: "Ascension",
+    description: "Une nouvelle date de congé a été ajoutée au calendrier RH.",
+    time: "1 day ago",
+  },
+]);
+
+const systemStatus = ref([
+  {
+    label: "Uptime",
+    value: "99.9 %",
+    icon: "mdi-server",
+    bg: "linear-gradient(135deg, #4f46e5, #3b82f6)",
+  },
+  {
+    label: "Sécurité",
+    value: "Protéger",
+    icon: "mdi-shield-lock",
+    bg: "linear-gradient(135deg, #059669, #10b981)",
+  },
+  {
+    label: "Base de données",
+    value: "Stable",
+    icon: "mdi-database",
+    bg: "linear-gradient(135deg, #f97316, #fb923c)",
+  },
+]);
 </script>
 
 <style scoped>
 .admin-home-view {
-  background-color: #f4f6f8;
+  background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 35%),
+    #f7fafc;
 }
-.rounded-lg {
-  border-radius: 12px;
+.dashboard-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 24px;
+  padding: 24px 24px 16px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #0f172a 0%, #111827 100%);
+  color: #fff;
 }
-.v-list-item {
-  padding-block: 8px;
+.hero-text h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+}
+.hero-text p {
+  color: rgba(255, 255, 255, 0.72);
+  margin: 8px 0 0;
+}
+.hero-actions {
+  display: flex;
+  gap: 12px;
+}
+.kpi-row {
+  margin-bottom: 24px;
+}
+.kpi-card {
+  min-height: 170px;
+  border-radius: 18px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #ffffff;
+}
+.kpi-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+.kpi-label {
+  color: #6b7280;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.kpi-card-value {
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin: 16px 0 8px;
+}
+.kpi-card-subtitle {
+  color: #6b7280;
+}
+.gradient-1 {
+  background: linear-gradient(135deg, #2563eb, #0ea5e9);
+}
+.gradient-2 {
+  background: linear-gradient(135deg, #10b981, #14b8a6);
+}
+.gradient-3 {
+  background: linear-gradient(135deg, #f97316, #fb8c00);
+}
+.gradient-4 {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+}
+.main-grid {
+  gap: 24px;
+}
+.summary-card,
+.recent-activity-card,
+.action-card,
+.status-card {
+  border-radius: 22px;
+  padding: 24px;
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.section-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.section-header p {
+  margin: 6px 0 0;
+  color: #6b7280;
+}
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.summary-item {
+  padding: 18px;
+  border-radius: 16px;
+  background: #f8fafc;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.summary-stat {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+.summary-label {
+  color: #4b5563;
+  margin-top: 8px;
+}
+.summary-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #374151;
+  font-size: 0.95rem;
+}
+.action-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+.priority-action {
+  padding: 16px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+.priority-action:last-child {
+  border-bottom: none;
+}
+.timeline-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.timeline-time {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+.status-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+.status-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+.status-value {
+  font-weight: 700;
+}
+.status-label {
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+@media (max-width: 1280px) {
+  .dashboard-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .hero-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 960px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

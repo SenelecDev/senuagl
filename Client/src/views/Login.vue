@@ -21,6 +21,7 @@
             <li>Suivi des postes et des postes vacants</li>
             <li>Analyse des statistiques</li>
             <li>Planification des avancements et des départs</li>
+            <li>Suivi du Budget</li>
           </ul>
         </div>
       </div>

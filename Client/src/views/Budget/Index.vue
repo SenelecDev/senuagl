@@ -169,6 +169,8 @@
               </div>
             </template>
           </v-data-table>
+
+          <EstimationBudget :annee="selectedYear" :type-budget="typeBudget" />
         </v-window-item>
 
         <v-window-item value="prevision">
@@ -238,7 +240,7 @@
           <div class="form-panel">
             <div class="form-copy">
               <h2>Nouvel Engagement</h2>
-              <p>Ajoute une dépense engagée (bon de commande) à une date précise.</p>
+              <p>Ajoute une dépense engagée à une date précise.</p>
             </div>
             <v-form ref="engagementFormRef" @submit.prevent="submitEngagement">
               <v-row>
@@ -297,7 +299,7 @@
           <div class="form-panel">
             <div class="form-copy">
               <h2>Nouvelle Réalisation</h2>
-              <p>Ajoute une dépense constatée (facture réglée) à une date précise.</p>
+              <p>Ajoute une dépense constatée à une date précise.</p>
             </div>
             <v-form ref="realisationFormRef" @submit.prevent="submitRealisation">
               <v-row>
@@ -544,6 +546,7 @@ import { useBudgetStore } from '@/stores/budget'
 import { matchesCompteFilter, rowsForKpi, buildCompteIndex, collectDescendantIds } from '@/utils/budgetHierarchy'
 import BudgetFilterBar from '@/components/budget/BudgetFilterBar.vue'
 import ProjetInvestissementTable from '@/components/budget/ProjetInvestissementTable.vue'
+import EstimationBudget from '@/components/budget/EstimationBudget.vue'
 
 const budgetStore = useBudgetStore()
 const {

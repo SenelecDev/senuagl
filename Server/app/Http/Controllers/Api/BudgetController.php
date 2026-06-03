@@ -220,4 +220,96 @@ class BudgetController extends Controller
 
         return response()->json(['message' => 'type invalide.'], 422);
     }
+
+    /**
+     * Estimation budgétaire par extrapolation trimestrielle.
+     *
+     * Pour chaque section-compte, cumule engagements + réalisations par trimestre
+     * et extrapole sur 12 mois.
+     */
+    public function estimation(Request $request): JsonResponse
+    {
+        $annee = (int) $request->query('annee', date('Y'));
+
+        // Récupérer les comptes-section (ceux dont le numéro commence par SECTION-)
+        $sections = Compte::query()
+            ->where('numero', 'LIKE', 'SECTION-%')
+            ->get();
+
+        $sectionData = [];
+
+        foreach ($sections as $section) {
+            $descendantIds = $this->collectDescendantIds($section->id);
+
+            $quarterEnds = [
+                1 => "{$annee}-03-31",
+                2 => "{$annee}-06-30",
+                3 => "{$annee}-09-30",
+                4 => "{$annee}-12-31",
+            ];
+
+            $coefficients = [
+                1 => 12 / 3,   // ×4
+                2 => 12 / 6,   // ×2
+                3 => 12 / 9,   // ×4/3
+                4 => 12 / 12,  // ×1
+            ];
+
+            $result = [
+                'compte_id' => $section->id,
+                'numero'    => $section->numero,
+                'intitule'  => $section->intitule,
+            ];
+
+            foreach ($quarterEnds as $q => $endDate) {
+                $startDate = "{$annee}-01-01";
+
+                $cumulEngage = Engagement::query()
+                    ->whereIn('compte_id', $descendantIds)
+                    ->whereBetween('date_engagement', [$startDate, $endDate])
+                    ->sum('montant_engage');
+
+                $cumulRealise = Realisation::query()
+                    ->whereIn('compte_id', $descendantIds)
+                    ->whereBetween('date_realisation', [$startDate, $endDate])
+                    ->sum('montant_realise');
+
+                $cumul = round((float) $cumulEngage + (float) $cumulRealise, 2);
+                $estimation = round($cumul * $coefficients[$q], 2);
+
+                $result["cumul_q{$q}"] = $cumul;
+                $result["estimation_q{$q}"] = $estimation;
+            }
+
+            // Budget prévu pour cette section (somme des prévisions des comptes enfants)
+            $totalPrevu = BudgetPrevision::query()
+                ->whereIn('compte_id', $descendantIds)
+                ->where('annee', $annee)
+                ->sum('montant_prevu');
+
+            $result['budget_prevu'] = round((float) $totalPrevu, 2);
+
+            $sectionData[] = $result;
+        }
+
+        return response()->json([
+            'annee'    => $annee,
+            'sections' => $sectionData,
+        ]);
+    }
+
+    /**
+     * Collecte récursivement tous les IDs descendants d'un compte.
+     */
+    private function collectDescendantIds(int $compteId): array
+    {
+        $ids = [$compteId];
+        $children = Compte::query()->where('parent_id', $compteId)->pluck('id')->all();
+
+        foreach ($children as $childId) {
+            $ids = array_merge($ids, $this->collectDescendantIds($childId));
+        }
+
+        return $ids;
+    }
 }

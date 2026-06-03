@@ -19,9 +19,11 @@ export const useBudgetStore = defineStore('budget', {
     comptes: [],
     investissements: [],
     calculation: null,
+    estimation: null,
     loading: false,
     loadingRefs: false,
     loadingInvestments: false,
+    loadingEstimation: false,
     saving: false,
     calculating: false,
     error: null
@@ -204,6 +206,21 @@ export const useBudgetStore = defineStore('budget', {
         throw error
       } finally {
         this.saving = false
+      }
+    },
+
+    async fetchEstimation(annee) {
+      this.loadingEstimation = true
+      this.error = null
+      try {
+        const response = await api.get('/budget/estimation', { params: { annee } })
+        this.estimation = response.data
+        return response.data
+      } catch (error) {
+        this.estimation = null
+        this.error = getErrorMessage(error, 'Erreur lors du chargement de l\'estimation budgétaire.')
+      } finally {
+        this.loadingEstimation = false
       }
     }
   }

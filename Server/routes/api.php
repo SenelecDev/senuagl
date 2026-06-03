@@ -84,6 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Budget & investissements
     Route::get('budget/referentiels', [BudgetController::class, 'referentiels']);
+    Route::get('budget/estimation', [BudgetController::class, 'estimation']);
     Route::post('budget/comptes', [BudgetController::class, 'storeCompte']);
     Route::get('budget', [BudgetController::class, 'index']);
     Route::post('budget', [BudgetController::class, 'store']);

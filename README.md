@@ -170,8 +170,7 @@ UAGL Project/
 
 | Table | Description | Clé primaire |
 |-------|-------------|-------------|
-| `agents` | Fiche agent (identité, poste, GF/NR, direction, département, service, cellule) | 
-| `matricule` (string) |
+| `agents` | Fiche agent (identité, poste, GF/NR, direction, département, service, cellule)  | `matricule` (string) |
 | `gfs` | Groupes Fonctionnels (échelle de classification) | `id_gf` (string) |
 | `nrs` | Niveaux de Rémunération | `id_nr` (string) |
 | `unites` | Organigramme hiérarchique (Direction → Département → Service → Cellule) | `id_unite` (string) |
